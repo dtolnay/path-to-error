@@ -11,6 +11,7 @@ pub struct Path {
 pub enum Segment {
     Seq { index: usize },
     Map { key: String },
+    Enum { variant: String },
     Option,
     Other,
 }
@@ -64,6 +65,10 @@ impl Display for Path {
                     Display::fmt(key, formatter)?;
                     needs_separator = true;
                 }
+                Segment::Enum { variant } => {
+                    Display::fmt(variant, formatter)?;
+                    needs_separator = true;
+                }
                 Segment::Option => {
                     needs_separator = false;
                 }
@@ -96,6 +101,10 @@ impl Path {
                 }
                 Chain::Map { parent, key } => {
                     segments.push(Segment::Map { key: key.clone() });
+                    chain = parent;
+                }
+                Chain::Enum { parent, variant } => {
+                    segments.push(Segment::Enum { variant: variant.clone() });
                     chain = parent;
                 }
                 Chain::Some { parent } => {

@@ -118,6 +118,7 @@ enum Chain<'a> {
     Root,
     Seq { parent: &'a Chain<'a>, index: usize },
     Map { parent: &'a Chain<'a>, key: String },
+    Enum { parent: &'a Chain<'a>, variant: String },
     Some { parent: &'a Chain<'a> },
     NewtypeStruct { parent: &'a Chain<'a> },
     NewtypeVariant { parent: &'a Chain<'a> },
@@ -473,17 +474,33 @@ where
     }
 }
 
-// Wrapper that attaches context to a `Visitor`, `SeqAccess`, `EnumAccess` or
-// `VariantAccess`.
+// Wrapper that attaches context to a `Visitor`, `SeqAccess` or `EnumAccess`.
 struct Wrap<'a, 'b, X> {
     delegate: X,
     chain: &'a Chain<'a>,
     track: &'b mut Track,
 }
 
+// Wrapper that attaches context to a `VariantAccess`.
+struct WrapVariant<'a, 'b, X> {
+    delegate: X,
+    chain: Chain<'a>,
+    track: &'b mut Track,
+}
+
 impl<'a, 'b, X> Wrap<'a, 'b, X> {
     fn new(delegate: X, chain: &'a Chain<'a>, track: &'b mut Track) -> Self {
         Wrap {
+            delegate,
+            chain,
+            track,
+        }
+    }
+}
+
+impl<'a, 'b, X> WrapVariant<'a, 'b, X> {
+    fn new(delegate: X, chain: Chain<'a>, track: &'b mut Track) -> Self {
+        WrapVariant {
             delegate,
             chain,
             track,
@@ -792,7 +809,7 @@ where
     X: de::EnumAccess<'de>,
 {
     type Error = X::Error;
-    type Variant = Wrap<'a, 'b, X::Variant>;
+    type Variant = WrapVariant<'a, 'b, X::Variant>;
 
     fn variant_seed<V>(self, seed: V) -> Result<(V::Value, Self::Variant), X::Error>
     where
@@ -800,15 +817,22 @@ where
     {
         let chain = self.chain;
         let track = self.track;
+        let mut variant = None;
         self.delegate
-            .variant_seed(seed)
+            .variant_seed(CaptureKey::new(seed, &mut variant))
             .map_err(|err| track.trigger(chain, err))
-            .map(move |(v, vis)| (v, Wrap::new(vis, chain, track)))
+            .and_then(move |(v, vis)| {
+                let chain = Chain::Enum {
+                    parent: chain,
+                    variant: variant.ok_or_else(|| de::Error::custom("non-string key"))?,
+                };
+                Ok((v, WrapVariant::new(vis, chain, track)))
+            })
     }
 }
 
 // Forwarding impl to preserve context.
-impl<'a, 'b, 'de, X> de::VariantAccess<'de> for Wrap<'a, 'b, X>
+impl<'a, 'b, 'de, X> de::VariantAccess<'de> for WrapVariant<'a, 'b, X>
 where
     X: de::VariantAccess<'de>,
 {
@@ -819,7 +843,7 @@ where
         let track = self.track;
         self.delegate
             .unit_variant()
-            .map_err(|err| track.trigger(chain, err))
+            .map_err(|err| track.trigger(&chain, err))
     }
 
     fn newtype_variant_seed<T>(self, seed: T) -> Result<T::Value, X::Error>
@@ -828,10 +852,10 @@ where
     {
         let chain = self.chain;
         let track = self.track;
-        let nested = Chain::NewtypeVariant { parent: chain };
+        let nested = Chain::NewtypeVariant { parent: &chain };
         self.delegate
             .newtype_variant_seed(TrackedSeed::new(seed, nested, track))
-            .map_err(|err| track.trigger(chain, err))
+            .map_err(|err| track.trigger(&chain, err))
     }
 
     fn tuple_variant<V>(self, len: usize, visitor: V) -> Result<V::Value, X::Error>
@@ -841,8 +865,8 @@ where
         let chain = self.chain;
         let track = self.track;
         self.delegate
-            .tuple_variant(len, Wrap::new(visitor, chain, track))
-            .map_err(|err| track.trigger(chain, err))
+            .tuple_variant(len, Wrap::new(visitor, &chain, track))
+            .map_err(|err| track.trigger(&chain, err))
     }
 
     fn struct_variant<V>(
@@ -856,8 +880,8 @@ where
         let chain = self.chain;
         let track = self.track;
         self.delegate
-            .struct_variant(fields, Wrap::new(visitor, chain, track))
-            .map_err(|err| track.trigger(chain, err))
+            .struct_variant(fields, Wrap::new(visitor, &chain, track))
+            .map_err(|err| track.trigger(&chain, err))
     }
 }
 
