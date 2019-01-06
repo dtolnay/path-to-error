@@ -1,63 +1,130 @@
-use serde::de::{self, Deserialize, DeserializeSeed, Visitor};
-use std::fmt::{self, Display};
+//! ```
+//! # use serde_derive::Deserialize;
+//! #
+//! use serde::Deserialize;
+//! use std::collections::BTreeMap as Map;
+//!
+//! #[derive(Deserialize)]
+//! struct Package {
+//!     name: String,
+//!     dependencies: Map<String, Dependency>,
+//! }
+//!
+//! #[derive(Deserialize)]
+//! struct Dependency {
+//!     version: String,
+//! }
+//!
+//! fn main() {
+//!     let j = r#"{
+//!         "name": "demo",
+//!         "dependencies": {
+//!             "serde": {
+//!                 "version": 1
+//!             }
+//!         }
+//!     }"#;
+//!
+//!     // Some Deserializer.
+//!     let jd = &mut serde_json::Deserializer::from_str(j);
+//!
+//!     let result: Result<Package, _> = serde_errors::deserialize(jd);
+//!     match result {
+//!         Ok(_) => panic!("expected a type error"),
+//!         Err(err) => {
+//!             let path = err.path().to_string();
+//!             assert_eq!(path, "dependencies.serde.version");
+//!         }
+//!     }
+//! }
+//! ```
 
-pub fn deserialize<'de, D, T>(deserializer: D) -> Result<T, D::Error>
+#![doc(html_root_url = "https://docs.rs/serde_errors/0.0.0")]
+
+use serde::de::{self, Deserialize, DeserializeSeed, Visitor};
+use std::fmt;
+
+mod path;
+pub use crate::path::{Path, Segment, Segments};
+
+pub struct Error<E> {
+    path: Path,
+    original: E,
+}
+
+impl<E> Error<E> {
+    pub fn path(&self) -> &Path {
+        &self.path
+    }
+
+    pub fn into_inner(self) -> E {
+        self.original
+    }
+}
+
+pub struct Track {
+    path: Option<Path>,
+}
+
+impl Track {
+    #[inline]
+    fn trigger<E>(&mut self, chain: &Chain, err: E) -> E {
+        self.trigger_impl(chain);
+        err
+    }
+
+    fn trigger_impl(&mut self, chain: &Chain) {
+        if self.path.is_none() {
+            self.path = Some(Path::from_chain(chain));
+        }
+    }
+}
+
+/// Entry point. See crate documentation for an example.
+pub fn deserialize<'de, D, T>(deserializer: D) -> Result<T, Error<D::Error>>
 where
     D: de::Deserializer<'de>,
     T: Deserialize<'de>,
 {
-    T::deserialize(Deserializer::new(deserializer))
+    let mut track = Track { path: None };
+    match T::deserialize(Deserializer::new(deserializer, &mut track)) {
+        Ok(t) => Ok(t),
+        Err(err) => Err(Error {
+            path: track.path.unwrap_or_else(Path::empty),
+            original: err,
+        }),
+    }
 }
 
-pub struct Deserializer<'a, D> {
+/// Deserializer adapter that records path to deserialization errors.
+pub struct Deserializer<'a, 'b, D> {
     de: D,
-    path: Path<'a>,
+    chain: Chain<'a>,
+    track: &'b mut Track,
 }
 
-impl<'a, D> Deserializer<'a, D> {
-    pub fn new(de: D) -> Self {
+impl<'a, 'b, D> Deserializer<'a, 'b, D> {
+    pub fn new(de: D, track: &'b mut Track) -> Self {
         Deserializer {
             de,
-            path: Path::Root,
+            chain: Chain::Root,
+            track,
         }
     }
 }
 
-pub enum Path<'a> {
+#[derive(Clone)]
+enum Chain<'a> {
     Root,
-    Seq { parent: &'a Path<'a>, index: usize },
-    Map { parent: &'a Path<'a>, key: String },
-    Some { parent: &'a Path<'a> },
-    NewtypeStruct { parent: &'a Path<'a> },
-    NewtypeVariant { parent: &'a Path<'a> },
-}
-
-impl<'a> Display for Path<'a> {
-    fn fmt(&self, formatter: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        struct Parent<'a>(&'a Path<'a>);
-
-        impl<'a> Display for Parent<'a> {
-            fn fmt(&self, formatter: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-                match *self.0 {
-                    Path::Root => Ok(()),
-                    ref path => write!(formatter, "{}.", path),
-                }
-            }
-        }
-
-        match *self {
-            Path::Root => formatter.write_str("."),
-            Path::Seq { parent, index } => write!(formatter, "{}{}", Parent(parent), index),
-            Path::Map { parent, ref key } => write!(formatter, "{}{}", Parent(parent), key),
-            Path::Some { parent }
-            | Path::NewtypeStruct { parent }
-            | Path::NewtypeVariant { parent } => write!(formatter, "{}?", Parent(parent)),
-        }
-    }
+    Seq { parent: &'a Chain<'a>, index: usize },
+    Map { parent: &'a Chain<'a>, key: String },
+    Some { parent: &'a Chain<'a> },
+    NewtypeStruct { parent: &'a Chain<'a> },
+    NewtypeVariant { parent: &'a Chain<'a> },
 }
 
 // Plain old forwarding impl.
-impl<'a, 'de, D> de::Deserializer<'de> for Deserializer<'a, D>
+impl<'a, 'b, 'de, D> de::Deserializer<'de> for Deserializer<'a, 'b, D>
 where
     D: de::Deserializer<'de>,
 {
@@ -67,133 +134,209 @@ where
     where
         V: Visitor<'de>,
     {
-        self.de.deserialize_any(Wrap::new(visitor, &self.path))
+        let chain = self.chain;
+        let track = self.track;
+        self.de
+            .deserialize_any(Wrap::new(visitor, &chain, track))
+            .map_err(|err| track.trigger(&chain, err))
     }
 
     fn deserialize_bool<V>(self, visitor: V) -> Result<V::Value, D::Error>
     where
         V: Visitor<'de>,
     {
-        self.de.deserialize_bool(Wrap::new(visitor, &self.path))
+        let chain = self.chain;
+        let track = self.track;
+        self.de
+            .deserialize_bool(Wrap::new(visitor, &chain, track))
+            .map_err(|err| track.trigger(&chain, err))
     }
 
     fn deserialize_u8<V>(self, visitor: V) -> Result<V::Value, D::Error>
     where
         V: Visitor<'de>,
     {
-        self.de.deserialize_u8(Wrap::new(visitor, &self.path))
+        let chain = self.chain;
+        let track = self.track;
+        self.de
+            .deserialize_u8(Wrap::new(visitor, &chain, track))
+            .map_err(|err| track.trigger(&chain, err))
     }
 
     fn deserialize_u16<V>(self, visitor: V) -> Result<V::Value, D::Error>
     where
         V: Visitor<'de>,
     {
-        self.de.deserialize_u16(Wrap::new(visitor, &self.path))
+        let chain = self.chain;
+        let track = self.track;
+        self.de
+            .deserialize_u16(Wrap::new(visitor, &chain, track))
+            .map_err(|err| track.trigger(&chain, err))
     }
 
     fn deserialize_u32<V>(self, visitor: V) -> Result<V::Value, D::Error>
     where
         V: Visitor<'de>,
     {
-        self.de.deserialize_u32(Wrap::new(visitor, &self.path))
+        let chain = self.chain;
+        let track = self.track;
+        self.de
+            .deserialize_u32(Wrap::new(visitor, &chain, track))
+            .map_err(|err| track.trigger(&chain, err))
     }
 
     fn deserialize_u64<V>(self, visitor: V) -> Result<V::Value, D::Error>
     where
         V: Visitor<'de>,
     {
-        self.de.deserialize_u64(Wrap::new(visitor, &self.path))
+        let chain = self.chain;
+        let track = self.track;
+        self.de
+            .deserialize_u64(Wrap::new(visitor, &chain, track))
+            .map_err(|err| track.trigger(&chain, err))
     }
 
     fn deserialize_i8<V>(self, visitor: V) -> Result<V::Value, D::Error>
     where
         V: Visitor<'de>,
     {
-        self.de.deserialize_i8(Wrap::new(visitor, &self.path))
+        let chain = self.chain;
+        let track = self.track;
+        self.de
+            .deserialize_i8(Wrap::new(visitor, &chain, track))
+            .map_err(|err| track.trigger(&chain, err))
     }
 
     fn deserialize_i16<V>(self, visitor: V) -> Result<V::Value, D::Error>
     where
         V: Visitor<'de>,
     {
-        self.de.deserialize_i16(Wrap::new(visitor, &self.path))
+        let chain = self.chain;
+        let track = self.track;
+        self.de
+            .deserialize_i16(Wrap::new(visitor, &chain, track))
+            .map_err(|err| track.trigger(&chain, err))
     }
 
     fn deserialize_i32<V>(self, visitor: V) -> Result<V::Value, D::Error>
     where
         V: Visitor<'de>,
     {
-        self.de.deserialize_i32(Wrap::new(visitor, &self.path))
+        let chain = self.chain;
+        let track = self.track;
+        self.de
+            .deserialize_i32(Wrap::new(visitor, &chain, track))
+            .map_err(|err| track.trigger(&chain, err))
     }
 
     fn deserialize_i64<V>(self, visitor: V) -> Result<V::Value, D::Error>
     where
         V: Visitor<'de>,
     {
-        self.de.deserialize_i64(Wrap::new(visitor, &self.path))
+        let chain = self.chain;
+        let track = self.track;
+        self.de
+            .deserialize_i64(Wrap::new(visitor, &chain, track))
+            .map_err(|err| track.trigger(&chain, err))
     }
 
     fn deserialize_f32<V>(self, visitor: V) -> Result<V::Value, D::Error>
     where
         V: Visitor<'de>,
     {
-        self.de.deserialize_f32(Wrap::new(visitor, &self.path))
+        let chain = self.chain;
+        let track = self.track;
+        self.de
+            .deserialize_f32(Wrap::new(visitor, &chain, track))
+            .map_err(|err| track.trigger(&chain, err))
     }
 
     fn deserialize_f64<V>(self, visitor: V) -> Result<V::Value, D::Error>
     where
         V: Visitor<'de>,
     {
-        self.de.deserialize_f64(Wrap::new(visitor, &self.path))
+        let chain = self.chain;
+        let track = self.track;
+        self.de
+            .deserialize_f64(Wrap::new(visitor, &chain, track))
+            .map_err(|err| track.trigger(&chain, err))
     }
 
     fn deserialize_char<V>(self, visitor: V) -> Result<V::Value, D::Error>
     where
         V: Visitor<'de>,
     {
-        self.de.deserialize_char(Wrap::new(visitor, &self.path))
+        let chain = self.chain;
+        let track = self.track;
+        self.de
+            .deserialize_char(Wrap::new(visitor, &chain, track))
+            .map_err(|err| track.trigger(&chain, err))
     }
 
     fn deserialize_str<V>(self, visitor: V) -> Result<V::Value, D::Error>
     where
         V: Visitor<'de>,
     {
-        self.de.deserialize_str(Wrap::new(visitor, &self.path))
+        let chain = self.chain;
+        let track = self.track;
+        self.de
+            .deserialize_str(Wrap::new(visitor, &chain, track))
+            .map_err(|err| track.trigger(&chain, err))
     }
 
     fn deserialize_string<V>(self, visitor: V) -> Result<V::Value, D::Error>
     where
         V: Visitor<'de>,
     {
-        self.de.deserialize_string(Wrap::new(visitor, &self.path))
+        let chain = self.chain;
+        let track = self.track;
+        self.de
+            .deserialize_string(Wrap::new(visitor, &chain, track))
+            .map_err(|err| track.trigger(&chain, err))
     }
 
     fn deserialize_bytes<V>(self, visitor: V) -> Result<V::Value, D::Error>
     where
         V: Visitor<'de>,
     {
-        self.de.deserialize_bytes(Wrap::new(visitor, &self.path))
+        let chain = self.chain;
+        let track = self.track;
+        self.de
+            .deserialize_bytes(Wrap::new(visitor, &chain, track))
+            .map_err(|err| track.trigger(&chain, err))
     }
 
     fn deserialize_byte_buf<V>(self, visitor: V) -> Result<V::Value, D::Error>
     where
         V: Visitor<'de>,
     {
-        self.de.deserialize_byte_buf(Wrap::new(visitor, &self.path))
+        let chain = self.chain;
+        let track = self.track;
+        self.de
+            .deserialize_byte_buf(Wrap::new(visitor, &chain, track))
+            .map_err(|err| track.trigger(&chain, err))
     }
 
     fn deserialize_option<V>(self, visitor: V) -> Result<V::Value, D::Error>
     where
         V: Visitor<'de>,
     {
-        self.de.deserialize_option(Wrap::new(visitor, &self.path))
+        let chain = self.chain;
+        let track = self.track;
+        self.de
+            .deserialize_option(Wrap::new(visitor, &chain, track))
+            .map_err(|err| track.trigger(&chain, err))
     }
 
     fn deserialize_unit<V>(self, visitor: V) -> Result<V::Value, D::Error>
     where
         V: Visitor<'de>,
     {
-        self.de.deserialize_unit(Wrap::new(visitor, &self.path))
+        let chain = self.chain;
+        let track = self.track;
+        self.de
+            .deserialize_unit(Wrap::new(visitor, &chain, track))
+            .map_err(|err| track.trigger(&chain, err))
     }
 
     fn deserialize_unit_struct<V>(
@@ -204,8 +347,11 @@ where
     where
         V: Visitor<'de>,
     {
+        let chain = self.chain;
+        let track = self.track;
         self.de
-            .deserialize_unit_struct(name, Wrap::new(visitor, &self.path))
+            .deserialize_unit_struct(name, Wrap::new(visitor, &chain, track))
+            .map_err(|err| track.trigger(&chain, err))
     }
 
     fn deserialize_newtype_struct<V>(
@@ -216,23 +362,33 @@ where
     where
         V: Visitor<'de>,
     {
+        let chain = self.chain;
+        let track = self.track;
         self.de
-            .deserialize_newtype_struct(name, Wrap::new(visitor, &self.path))
+            .deserialize_newtype_struct(name, Wrap::new(visitor, &chain, track))
+            .map_err(|err| track.trigger(&chain, err))
     }
 
     fn deserialize_seq<V>(self, visitor: V) -> Result<V::Value, D::Error>
     where
         V: Visitor<'de>,
     {
-        self.de.deserialize_seq(Wrap::new(visitor, &self.path))
+        let chain = self.chain;
+        let track = self.track;
+        self.de
+            .deserialize_seq(Wrap::new(visitor, &chain, track))
+            .map_err(|err| track.trigger(&chain, err))
     }
 
     fn deserialize_tuple<V>(self, len: usize, visitor: V) -> Result<V::Value, D::Error>
     where
         V: Visitor<'de>,
     {
+        let chain = self.chain;
+        let track = self.track;
         self.de
-            .deserialize_tuple(len, Wrap::new(visitor, &self.path))
+            .deserialize_tuple(len, Wrap::new(visitor, &chain, track))
+            .map_err(|err| track.trigger(&chain, err))
     }
 
     fn deserialize_tuple_struct<V>(
@@ -244,15 +400,22 @@ where
     where
         V: Visitor<'de>,
     {
+        let chain = self.chain;
+        let track = self.track;
         self.de
-            .deserialize_tuple_struct(name, len, Wrap::new(visitor, &self.path))
+            .deserialize_tuple_struct(name, len, Wrap::new(visitor, &chain, track))
+            .map_err(|err| track.trigger(&chain, err))
     }
 
     fn deserialize_map<V>(self, visitor: V) -> Result<V::Value, D::Error>
     where
         V: Visitor<'de>,
     {
-        self.de.deserialize_map(Wrap::new(visitor, &self.path))
+        let chain = self.chain;
+        let track = self.track;
+        self.de
+            .deserialize_map(Wrap::new(visitor, &chain, track))
+            .map_err(|err| track.trigger(&chain, err))
     }
 
     fn deserialize_struct<V>(
@@ -264,8 +427,11 @@ where
     where
         V: Visitor<'de>,
     {
+        let chain = self.chain;
+        let track = self.track;
         self.de
-            .deserialize_struct(name, fields, Wrap::new(visitor, &self.path))
+            .deserialize_struct(name, fields, Wrap::new(visitor, &chain, track))
+            .map_err(|err| track.trigger(&chain, err))
     }
 
     fn deserialize_enum<V>(
@@ -277,42 +443,56 @@ where
     where
         V: Visitor<'de>,
     {
+        let chain = self.chain;
+        let track = self.track;
         self.de
-            .deserialize_enum(name, variants, Wrap::new(visitor, &self.path))
+            .deserialize_enum(name, variants, Wrap::new(visitor, &chain, track))
+            .map_err(|err| track.trigger(&chain, err))
     }
 
     fn deserialize_ignored_any<V>(self, visitor: V) -> Result<V::Value, D::Error>
     where
         V: Visitor<'de>,
     {
+        let chain = self.chain;
+        let track = self.track;
         self.de
-            .deserialize_ignored_any(Wrap::new(visitor, &self.path))
+            .deserialize_ignored_any(Wrap::new(visitor, &chain, track))
+            .map_err(|err| track.trigger(&chain, err))
     }
 
     fn deserialize_identifier<V>(self, visitor: V) -> Result<V::Value, D::Error>
     where
         V: Visitor<'de>,
     {
+        let chain = self.chain;
+        let track = self.track;
         self.de
-            .deserialize_identifier(Wrap::new(visitor, &self.path))
+            .deserialize_identifier(Wrap::new(visitor, &chain, track))
+            .map_err(|err| track.trigger(&chain, err))
     }
 }
 
 // Wrapper that attaches context to a `Visitor`, `SeqAccess`, `EnumAccess` or
 // `VariantAccess`.
-struct Wrap<'a, X> {
+struct Wrap<'a, 'b, X> {
     delegate: X,
-    path: &'a Path<'a>,
+    chain: &'a Chain<'a>,
+    track: &'b mut Track,
 }
 
-impl<'a, X> Wrap<'a, X> {
-    fn new(delegate: X, path: &'a Path<'a>) -> Self {
-        Wrap { delegate, path }
+impl<'a, 'b, X> Wrap<'a, 'b, X> {
+    fn new(delegate: X, chain: &'a Chain<'a>, track: &'b mut Track) -> Self {
+        Wrap {
+            delegate,
+            chain,
+            track,
+        }
     }
 }
 
 // Forwarding impl to preserve context.
-impl<'a, 'de, X> Visitor<'de> for Wrap<'a, X>
+impl<'a, 'b, 'de, X> Visitor<'de> for Wrap<'a, 'b, X>
 where
     X: Visitor<'de>,
 {
@@ -326,229 +506,343 @@ where
     where
         E: de::Error,
     {
-        self.delegate.visit_bool(v)
+        let chain = self.chain;
+        let track = self.track;
+        self.delegate
+            .visit_bool(v)
+            .map_err(|err| track.trigger(chain, err))
     }
 
     fn visit_i8<E>(self, v: i8) -> Result<Self::Value, E>
     where
         E: de::Error,
     {
-        self.delegate.visit_i8(v)
+        let chain = self.chain;
+        let track = self.track;
+        self.delegate
+            .visit_i8(v)
+            .map_err(|err| track.trigger(chain, err))
     }
 
     fn visit_i16<E>(self, v: i16) -> Result<Self::Value, E>
     where
         E: de::Error,
     {
-        self.delegate.visit_i16(v)
+        let chain = self.chain;
+        let track = self.track;
+        self.delegate
+            .visit_i16(v)
+            .map_err(|err| track.trigger(chain, err))
     }
 
     fn visit_i32<E>(self, v: i32) -> Result<Self::Value, E>
     where
         E: de::Error,
     {
-        self.delegate.visit_i32(v)
+        let chain = self.chain;
+        let track = self.track;
+        self.delegate
+            .visit_i32(v)
+            .map_err(|err| track.trigger(chain, err))
     }
 
     fn visit_i64<E>(self, v: i64) -> Result<Self::Value, E>
     where
         E: de::Error,
     {
-        self.delegate.visit_i64(v)
+        let chain = self.chain;
+        let track = self.track;
+        self.delegate
+            .visit_i64(v)
+            .map_err(|err| track.trigger(chain, err))
     }
 
     fn visit_u8<E>(self, v: u8) -> Result<Self::Value, E>
     where
         E: de::Error,
     {
-        self.delegate.visit_u8(v)
+        let chain = self.chain;
+        let track = self.track;
+        self.delegate
+            .visit_u8(v)
+            .map_err(|err| track.trigger(chain, err))
     }
 
     fn visit_u16<E>(self, v: u16) -> Result<Self::Value, E>
     where
         E: de::Error,
     {
-        self.delegate.visit_u16(v)
+        let chain = self.chain;
+        let track = self.track;
+        self.delegate
+            .visit_u16(v)
+            .map_err(|err| track.trigger(chain, err))
     }
 
     fn visit_u32<E>(self, v: u32) -> Result<Self::Value, E>
     where
         E: de::Error,
     {
-        self.delegate.visit_u32(v)
+        let chain = self.chain;
+        let track = self.track;
+        self.delegate
+            .visit_u32(v)
+            .map_err(|err| track.trigger(chain, err))
     }
 
     fn visit_u64<E>(self, v: u64) -> Result<Self::Value, E>
     where
         E: de::Error,
     {
-        self.delegate.visit_u64(v)
+        let chain = self.chain;
+        let track = self.track;
+        self.delegate
+            .visit_u64(v)
+            .map_err(|err| track.trigger(chain, err))
     }
 
     fn visit_f32<E>(self, v: f32) -> Result<Self::Value, E>
     where
         E: de::Error,
     {
-        self.delegate.visit_f32(v)
+        let chain = self.chain;
+        let track = self.track;
+        self.delegate
+            .visit_f32(v)
+            .map_err(|err| track.trigger(chain, err))
     }
 
     fn visit_f64<E>(self, v: f64) -> Result<Self::Value, E>
     where
         E: de::Error,
     {
-        self.delegate.visit_f64(v)
+        let chain = self.chain;
+        let track = self.track;
+        self.delegate
+            .visit_f64(v)
+            .map_err(|err| track.trigger(chain, err))
     }
 
     fn visit_char<E>(self, v: char) -> Result<Self::Value, E>
     where
         E: de::Error,
     {
-        self.delegate.visit_char(v)
+        let chain = self.chain;
+        let track = self.track;
+        self.delegate
+            .visit_char(v)
+            .map_err(|err| track.trigger(chain, err))
     }
 
     fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
     where
         E: de::Error,
     {
-        self.delegate.visit_str(v)
+        let chain = self.chain;
+        let track = self.track;
+        self.delegate
+            .visit_str(v)
+            .map_err(|err| track.trigger(chain, err))
     }
 
     fn visit_borrowed_str<E>(self, v: &'de str) -> Result<Self::Value, E>
     where
         E: de::Error,
     {
-        self.delegate.visit_borrowed_str(v)
+        let chain = self.chain;
+        let track = self.track;
+        self.delegate
+            .visit_borrowed_str(v)
+            .map_err(|err| track.trigger(chain, err))
     }
 
     fn visit_string<E>(self, v: String) -> Result<Self::Value, E>
     where
         E: de::Error,
     {
-        self.delegate.visit_string(v)
+        let chain = self.chain;
+        let track = self.track;
+        self.delegate
+            .visit_string(v)
+            .map_err(|err| track.trigger(chain, err))
     }
 
     fn visit_unit<E>(self) -> Result<Self::Value, E>
     where
         E: de::Error,
     {
-        self.delegate.visit_unit()
+        let chain = self.chain;
+        let track = self.track;
+        self.delegate
+            .visit_unit()
+            .map_err(|err| track.trigger(chain, err))
     }
 
     fn visit_none<E>(self) -> Result<Self::Value, E>
     where
         E: de::Error,
     {
-        self.delegate.visit_none()
+        let chain = self.chain;
+        let track = self.track;
+        self.delegate
+            .visit_none()
+            .map_err(|err| track.trigger(chain, err))
     }
 
     fn visit_some<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
     where
         D: de::Deserializer<'de>,
     {
-        self.delegate.visit_some(Deserializer {
-            de: deserializer,
-            path: Path::Some { parent: self.path },
-        })
+        let chain = self.chain;
+        let track = self.track;
+        self.delegate
+            .visit_some(Deserializer {
+                de: deserializer,
+                chain: Chain::Some { parent: chain },
+                track: track,
+            })
+            .map_err(|err| track.trigger(chain, err))
     }
 
     fn visit_newtype_struct<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
     where
         D: de::Deserializer<'de>,
     {
-        self.delegate.visit_newtype_struct(Deserializer {
-            de: deserializer,
-            path: Path::NewtypeStruct { parent: self.path },
-        })
+        let chain = self.chain;
+        let track = self.track;
+        self.delegate
+            .visit_newtype_struct(Deserializer {
+                de: deserializer,
+                chain: Chain::NewtypeStruct { parent: chain },
+                track: track,
+            })
+            .map_err(|err| track.trigger(chain, err))
     }
 
     fn visit_seq<V>(self, visitor: V) -> Result<Self::Value, V::Error>
     where
         V: de::SeqAccess<'de>,
     {
-        self.delegate.visit_seq(SeqAccess::new(visitor, self.path))
+        let chain = self.chain;
+        let track = self.track;
+        self.delegate
+            .visit_seq(SeqAccess::new(visitor, chain, track))
+            .map_err(|err| track.trigger(chain, err))
     }
 
     fn visit_map<V>(self, visitor: V) -> Result<Self::Value, V::Error>
     where
         V: de::MapAccess<'de>,
     {
-        self.delegate.visit_map(MapAccess::new(visitor, self.path))
+        let chain = self.chain;
+        let track = self.track;
+        self.delegate
+            .visit_map(MapAccess::new(visitor, chain, track))
+            .map_err(|err| track.trigger(chain, err))
     }
 
     fn visit_enum<V>(self, visitor: V) -> Result<Self::Value, V::Error>
     where
         V: de::EnumAccess<'de>,
     {
-        self.delegate.visit_enum(Wrap::new(visitor, self.path))
+        let chain = self.chain;
+        let track = self.track;
+        self.delegate
+            .visit_enum(Wrap::new(visitor, chain, track))
+            .map_err(|err| track.trigger(chain, err))
     }
 
     fn visit_bytes<E>(self, v: &[u8]) -> Result<Self::Value, E>
     where
         E: de::Error,
     {
-        self.delegate.visit_bytes(v)
+        let chain = self.chain;
+        let track = self.track;
+        self.delegate
+            .visit_bytes(v)
+            .map_err(|err| track.trigger(chain, err))
     }
 
     fn visit_borrowed_bytes<E>(self, v: &'de [u8]) -> Result<Self::Value, E>
     where
         E: de::Error,
     {
-        self.delegate.visit_borrowed_bytes(v)
+        let chain = self.chain;
+        let track = self.track;
+        self.delegate
+            .visit_borrowed_bytes(v)
+            .map_err(|err| track.trigger(chain, err))
     }
 
     fn visit_byte_buf<E>(self, v: Vec<u8>) -> Result<Self::Value, E>
     where
         E: de::Error,
     {
-        self.delegate.visit_byte_buf(v)
+        let chain = self.chain;
+        let track = self.track;
+        self.delegate
+            .visit_byte_buf(v)
+            .map_err(|err| track.trigger(chain, err))
     }
 }
 
 // Forwarding impl to preserve context.
-impl<'a, 'de, X: 'a> de::EnumAccess<'de> for Wrap<'a, X>
+impl<'a, 'b, 'de, X: 'a> de::EnumAccess<'de> for Wrap<'a, 'b, X>
 where
     X: de::EnumAccess<'de>,
 {
     type Error = X::Error;
-    type Variant = Wrap<'a, X::Variant>;
+    type Variant = Wrap<'a, 'b, X::Variant>;
 
     fn variant_seed<V>(self, seed: V) -> Result<(V::Value, Self::Variant), X::Error>
     where
         V: DeserializeSeed<'de>,
     {
-        let path = self.path;
+        let chain = self.chain;
+        let track = self.track;
         self.delegate
             .variant_seed(seed)
-            .map(move |(v, vis)| (v, Wrap::new(vis, path)))
+            .map_err(|err| track.trigger(chain, err))
+            .map(move |(v, vis)| (v, Wrap::new(vis, chain, track)))
     }
 }
 
 // Forwarding impl to preserve context.
-impl<'a, 'de, X> de::VariantAccess<'de> for Wrap<'a, X>
+impl<'a, 'b, 'de, X> de::VariantAccess<'de> for Wrap<'a, 'b, X>
 where
     X: de::VariantAccess<'de>,
 {
     type Error = X::Error;
 
     fn unit_variant(self) -> Result<(), X::Error> {
-        self.delegate.unit_variant()
+        let chain = self.chain;
+        let track = self.track;
+        self.delegate
+            .unit_variant()
+            .map_err(|err| track.trigger(chain, err))
     }
 
     fn newtype_variant_seed<T>(self, seed: T) -> Result<T::Value, X::Error>
     where
         T: DeserializeSeed<'de>,
     {
-        let path = Path::NewtypeVariant { parent: self.path };
+        let chain = self.chain;
+        let track = self.track;
+        let nested = Chain::NewtypeVariant { parent: chain };
         self.delegate
-            .newtype_variant_seed(TrackedSeed::new(seed, path))
+            .newtype_variant_seed(TrackedSeed::new(seed, nested, track))
+            .map_err(|err| track.trigger(chain, err))
     }
 
     fn tuple_variant<V>(self, len: usize, visitor: V) -> Result<V::Value, X::Error>
     where
         V: Visitor<'de>,
     {
+        let chain = self.chain;
+        let track = self.track;
         self.delegate
-            .tuple_variant(len, Wrap::new(visitor, self.path))
+            .tuple_variant(len, Wrap::new(visitor, chain, track))
+            .map_err(|err| track.trigger(chain, err))
     }
 
     fn struct_variant<V>(
@@ -559,8 +853,11 @@ where
     where
         V: Visitor<'de>,
     {
+        let chain = self.chain;
+        let track = self.track;
         self.delegate
-            .struct_variant(fields, Wrap::new(visitor, self.path))
+            .struct_variant(fields, Wrap::new(visitor, chain, track))
+            .map_err(|err| track.trigger(chain, err))
     }
 }
 
@@ -1051,18 +1348,19 @@ where
 
 // Seed used for map values, sequence elements and newtype variants to track
 // their path.
-struct TrackedSeed<'a, X> {
+struct TrackedSeed<'a, 'b, X> {
     seed: X,
-    path: Path<'a>,
+    chain: Chain<'a>,
+    track: &'b mut Track,
 }
 
-impl<'a, X> TrackedSeed<'a, X> {
-    fn new(seed: X, path: Path<'a>) -> Self {
-        TrackedSeed { seed, path }
+impl<'a, 'b, X> TrackedSeed<'a, 'b, X> {
+    fn new(seed: X, chain: Chain<'a>, track: &'b mut Track) -> Self {
+        TrackedSeed { seed, chain, track }
     }
 }
 
-impl<'a, 'de, X> DeserializeSeed<'de> for TrackedSeed<'a, X>
+impl<'a, 'b, 'de, X> DeserializeSeed<'de> for TrackedSeed<'a, 'b, X>
 where
     X: DeserializeSeed<'de>,
 {
@@ -1072,32 +1370,39 @@ where
     where
         D: de::Deserializer<'de>,
     {
-        self.seed.deserialize(Deserializer {
-            de: deserializer,
-            path: self.path,
-        })
+        let chain = self.chain;
+        let track = self.track;
+        self.seed
+            .deserialize(Deserializer {
+                de: deserializer,
+                chain: chain.clone(),
+                track: track,
+            })
+            .map_err(|err| track.trigger(&chain, err))
     }
 }
 
 // Seq visitor that tracks the index of its elements.
-struct SeqAccess<'a, X> {
+struct SeqAccess<'a, 'b, X> {
     delegate: X,
-    path: &'a Path<'a>,
+    chain: &'a Chain<'a>,
     index: usize,
+    track: &'b mut Track,
 }
 
-impl<'a, X> SeqAccess<'a, X> {
-    fn new(delegate: X, path: &'a Path<'a>) -> Self {
+impl<'a, 'b, X> SeqAccess<'a, 'b, X> {
+    fn new(delegate: X, chain: &'a Chain<'a>, track: &'b mut Track) -> Self {
         SeqAccess {
             delegate,
-            path,
+            chain,
             index: 0,
+            track,
         }
     }
 }
 
 // Forwarding impl to preserve context.
-impl<'a, 'de, X> de::SeqAccess<'de> for SeqAccess<'a, X>
+impl<'a, 'b, 'de, X> de::SeqAccess<'de> for SeqAccess<'a, 'b, X>
 where
     X: de::SeqAccess<'de>,
 {
@@ -1107,13 +1412,16 @@ where
     where
         T: DeserializeSeed<'de>,
     {
-        let path = Path::Seq {
-            parent: self.path,
+        let parent = self.chain;
+        let chain = Chain::Seq {
+            parent,
             index: self.index,
         };
+        let track = &mut *self.track;
         self.index += 1;
         self.delegate
-            .next_element_seed(TrackedSeed::new(seed, path))
+            .next_element_seed(TrackedSeed::new(seed, chain, track))
+            .map_err(|err| track.trigger(parent, err))
     }
 
     fn size_hint(&self) -> Option<usize> {
@@ -1123,18 +1431,20 @@ where
 
 // Map visitor that captures the string value of its keys and uses that to track
 // the path to its values.
-struct MapAccess<'a, X> {
+struct MapAccess<'a, 'b, X> {
     delegate: X,
-    path: &'a Path<'a>,
+    chain: &'a Chain<'a>,
     key: Option<String>,
+    track: &'b mut Track,
 }
 
-impl<'a, X> MapAccess<'a, X> {
-    fn new(delegate: X, path: &'a Path<'a>) -> Self {
+impl<'a, 'b, X> MapAccess<'a, 'b, X> {
+    fn new(delegate: X, chain: &'a Chain<'a>, track: &'b mut Track) -> Self {
         MapAccess {
             delegate,
-            path,
+            chain,
             key: None,
+            track,
         }
     }
 
@@ -1146,7 +1456,7 @@ impl<'a, X> MapAccess<'a, X> {
     }
 }
 
-impl<'a, 'de, X> de::MapAccess<'de> for MapAccess<'a, X>
+impl<'a, 'b, 'de, X> de::MapAccess<'de> for MapAccess<'a, 'b, X>
 where
     X: de::MapAccess<'de>,
 {
@@ -1156,19 +1466,26 @@ where
     where
         K: DeserializeSeed<'de>,
     {
+        let chain = self.chain;
+        let track = &mut *self.track;
         self.delegate
             .next_key_seed(CaptureKey::new(seed, &mut self.key))
+            .map_err(|err| track.trigger(chain, err))
     }
 
     fn next_value_seed<V>(&mut self, seed: V) -> Result<V::Value, X::Error>
     where
         V: DeserializeSeed<'de>,
     {
-        let path = Path::Map {
-            parent: self.path,
+        let parent = self.chain;
+        let chain = Chain::Map {
+            parent,
             key: self.key()?,
         };
-        self.delegate.next_value_seed(TrackedSeed::new(seed, path))
+        let track = &mut *self.track;
+        self.delegate
+            .next_value_seed(TrackedSeed::new(seed, chain, track))
+            .map_err(|err| track.trigger(parent, err))
     }
 
     fn size_hint(&self) -> Option<usize> {
