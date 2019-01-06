@@ -1,10 +1,10 @@
 [package]
-name = "serde_errors"
+name = "serde_path_to_error"
 version = "0.0.0"
 authors = ["David Tolnay <dtolnay@gmail.com>"]
 license = "MIT/Apache-2.0"
 description = "Path to the element that failed to deserialize"
-repository = "https://github.com/dtolnay/serde-errors"
+repository = "https://github.com/dtolnay/path-to-error"
 edition = "2018"
 
 [dependencies]
@@ -15,4 +15,4 @@ serde_derive = "1.0"
 serde_json = "1.0"
 
 [badges]
-travis-ci = { repository = "dtolnay/serde-errors" }
+travis-ci = { repository = "dtolnay/path-to-error" }

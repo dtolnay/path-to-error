@@ -8,7 +8,7 @@ where
     T: Deserialize<'de> + Debug,
 {
     let de = &mut serde_json::Deserializer::from_str(json);
-    let result: Result<T, _> = serde_errors::deserialize(de);
+    let result: Result<T, _> = serde_path_to_error::deserialize(de);
     let path = result.unwrap_err().path().to_string();
     assert_eq!(path, expected);
 }

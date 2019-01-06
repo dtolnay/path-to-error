@@ -28,7 +28,7 @@
 //!     // Some Deserializer.
 //!     let jd = &mut serde_json::Deserializer::from_str(j);
 //!
-//!     let result: Result<Package, _> = serde_errors::deserialize(jd);
+//!     let result: Result<Package, _> = serde_path_to_error::deserialize(jd);
 //!     match result {
 //!         Ok(_) => panic!("expected a type error"),
 //!         Err(err) => {
@@ -39,7 +39,7 @@
 //! }
 //! ```
 
-#![doc(html_root_url = "https://docs.rs/serde_errors/0.0.0")]
+#![doc(html_root_url = "https://docs.rs/serde_path_to_error/0.0.0")]
 
 use serde::de::{self, Deserialize, DeserializeSeed, Visitor};
 use std::fmt;
