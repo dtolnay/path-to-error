@@ -12,8 +12,7 @@ pub enum Segment {
     Seq { index: usize },
     Map { key: String },
     Enum { variant: String },
-    Option,
-    Other,
+    Unknown,
 }
 
 impl Path {
@@ -51,30 +50,22 @@ impl Display for Path {
             return formatter.write_str(".");
         }
 
-        let mut needs_separator = false;
-        for segment in self {
-            if needs_separator {
+        for (i, segment) in self.iter().enumerate() {
+            if i > 0 {
                 formatter.write_str(".")?;
             }
             match segment {
                 Segment::Seq { index } => {
                     Display::fmt(index, formatter)?;
-                    needs_separator = true;
                 }
                 Segment::Map { key } => {
                     Display::fmt(key, formatter)?;
-                    needs_separator = true;
                 }
                 Segment::Enum { variant } => {
                     Display::fmt(variant, formatter)?;
-                    needs_separator = true;
                 }
-                Segment::Option => {
-                    needs_separator = false;
-                }
-                Segment::Other => {
+                Segment::Unknown => {
                     formatter.write_str("?")?;
-                    needs_separator = true;
                 }
             }
         }
@@ -109,14 +100,13 @@ impl Path {
                     });
                     chain = parent;
                 }
-                Chain::Some { parent } => {
-                    segments.push(Segment::Option);
+                Chain::Some { parent }
+                | Chain::NewtypeStruct { parent }
+                | Chain::NewtypeVariant { parent } => {
                     chain = parent;
                 }
-                Chain::NewtypeStruct { parent }
-                | Chain::NewtypeVariant { parent }
-                | Chain::NonStringKey { parent } => {
-                    segments.push(Segment::Other);
+                Chain::NonStringKey { parent } => {
+                    segments.push(Segment::Unknown);
                     chain = parent;
                 }
             }
