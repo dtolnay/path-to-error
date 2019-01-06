@@ -11,7 +11,7 @@ chain of field names leading to the error.
 ```toml
 [dependencies]
 serde = "1.0"
-serde_path_to_error = "0.0"
+serde_path_to_error = "0.1"
 ```
 
 ```rust
