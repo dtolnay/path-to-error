@@ -67,6 +67,14 @@ pub struct Track {
 }
 
 impl Track {
+    pub fn new() -> Self {
+        Track { path: None }
+    }
+
+    pub fn path(self) -> Path {
+        self.path.unwrap_or_else(Path::empty)
+    }
+
     #[inline]
     fn trigger<E>(&mut self, chain: &Chain, err: E) -> E {
         self.trigger_impl(chain);
@@ -86,11 +94,11 @@ where
     D: de::Deserializer<'de>,
     T: Deserialize<'de>,
 {
-    let mut track = Track { path: None };
+    let mut track = Track::new();
     match T::deserialize(Deserializer::new(deserializer, &mut track)) {
         Ok(t) => Ok(t),
         Err(err) => Err(Error {
-            path: track.path.unwrap_or_else(Path::empty),
+            path: track.path(),
             original: err,
         }),
     }
