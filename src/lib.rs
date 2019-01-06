@@ -1,3 +1,9 @@
+//! Find out the path at which a deserialization error occurred. This crate
+//! provides a wrapper that works with any existing Serde `Deserializer` and
+//! exposes the chain of field names leading to the error.
+//!
+//! # Example
+//!
 //! ```
 //! # use serde_derive::Deserialize;
 //! #
@@ -47,30 +53,41 @@ use std::fmt;
 mod path;
 pub use crate::path::{Path, Segment, Segments};
 
+/// Original deserializer error together with the path at which it occurred.
 pub struct Error<E> {
     path: Path,
     original: E,
 }
 
 impl<E> Error<E> {
+    /// Element path at which this deserialization error occurred.
     pub fn path(&self) -> &Path {
         &self.path
     }
 
+    /// The Deserializer's underlying error that occurred.
     pub fn into_inner(self) -> E {
         self.original
     }
 }
 
+/// State for bookkeeping across nested deserializer calls.
+///
+/// You don't need this if you are using `serde_path_to_error::deserializer`. If
+/// you are managing your own `Deserializer`, see the usage example on
+/// [`Deserializer`].
 pub struct Track {
     path: Option<Path>,
 }
 
 impl Track {
+    /// Empty state with no error having happened yet.
     pub fn new() -> Self {
         Track { path: None }
     }
 
+    /// Gets path at which the error occurred. Only meaningful after we know
+    /// that an error has occurred. Returns an empty path otherwise.
     pub fn path(self) -> Path {
         self.path.unwrap_or_else(Path::empty)
     }
@@ -88,7 +105,7 @@ impl Track {
     }
 }
 
-/// Entry point. See crate documentation for an example.
+/// Entry point. See [crate documentation][crate] for an example.
 pub fn deserialize<'de, D, T>(deserializer: D) -> Result<T, Error<D::Error>>
 where
     D: de::Deserializer<'de>,
@@ -105,6 +122,51 @@ where
 }
 
 /// Deserializer adapter that records path to deserialization errors.
+///
+/// # Example
+///
+/// ```
+/// # use serde_derive::Deserialize;
+/// #
+/// use serde::Deserialize;
+/// use std::collections::BTreeMap as Map;
+///
+/// #[derive(Deserialize)]
+/// struct Package {
+///     name: String,
+///     dependencies: Map<String, Dependency>,
+/// }
+///
+/// #[derive(Deserialize)]
+/// struct Dependency {
+///     version: String,
+/// }
+///
+/// fn main() {
+///     let j = r#"{
+///         "name": "demo",
+///         "dependencies": {
+///             "serde": {
+///                 "version": 1
+///             }
+///         }
+///     }"#;
+///
+///     // Some Deserializer.
+///     let jd = &mut serde_json::Deserializer::from_str(j);
+///
+///     let mut track = serde_path_to_error::Track::new();
+///     let pd = serde_path_to_error::Deserializer::new(jd, &mut track);
+///
+///     match Package::deserialize(pd) {
+///         Ok(_) => panic!("expected a type error"),
+///         Err(_) => {
+///             let path = track.path().to_string();
+///             assert_eq!(path, "dependencies.serde.version");
+///         }
+///     }
+/// }
+/// ```
 pub struct Deserializer<'a, 'b, D> {
     de: D,
     chain: Chain<'a>,

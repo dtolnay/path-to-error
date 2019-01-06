@@ -4,10 +4,15 @@ use std::slice;
 use super::Chain;
 
 /// Path to the error value in the input, like `dependencies.serde.typo1`.
+///
+/// Use `path.to_string()` to get a string representation of the path with
+/// segments separated by periods, or use `path.iter()` to iterate over
+/// individual segments of the path.
 pub struct Path {
     segments: Vec<Segment>,
 }
 
+/// Single segment of a path.
 pub enum Segment {
     Seq { index: usize },
     Map { key: String },
@@ -16,6 +21,7 @@ pub enum Segment {
 }
 
 impl Path {
+    /// Returns an iterator with element type [`&Segment`][Segment].
     pub fn iter(&self) -> Segments {
         Segments {
             iter: self.segments.iter(),
@@ -32,6 +38,7 @@ impl<'a> IntoIterator for &'a Path {
     }
 }
 
+/// Iterator over segments of a path.
 pub struct Segments<'a> {
     iter: slice::Iter<'a, Segment>,
 }
