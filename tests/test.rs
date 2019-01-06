@@ -1,0 +1,163 @@
+use serde::Deserialize;
+use serde_derive::Deserialize;
+use std::collections::BTreeMap as Map;
+use std::fmt::Debug;
+
+fn test<'de, T>(json: &'de str, expected: &str)
+where
+    T: Deserialize<'de> + Debug,
+{
+    let de = &mut serde_json::Deserializer::from_str(json);
+    let result: Result<T, _> = serde_errors::deserialize(de);
+    let path = result.unwrap_err().path().to_string();
+    assert_eq!(path, expected);
+}
+
+#[test]
+fn test_struct() {
+    #[derive(Deserialize, Debug)]
+    struct Package {
+        name: String,
+        dependencies: Map<String, Dependency>,
+    }
+
+    #[derive(Deserialize, Debug)]
+    struct Dependency {
+        version: String,
+    }
+
+    let j = r#"{
+        "name": "demo",
+        "dependencies": {
+            "serde": {
+                "version": 1
+            }
+        }
+    }"#;
+
+    test::<Package>(j, "dependencies.serde.version");
+}
+
+#[test]
+fn test_option() {
+    #[derive(Deserialize, Debug)]
+    struct Package {
+        dependency: Option<Dependency>,
+    }
+
+    #[derive(Deserialize, Debug)]
+    struct Dependency {
+        version: String,
+    }
+
+    let j = r#"{
+        "dependency": {
+            "version": 1
+        }
+    }"#;
+
+    test::<Package>(j, "dependency.version");
+}
+
+#[test]
+fn test_struct_variant() {
+    #[derive(Deserialize, Debug)]
+    struct Package {
+        dependency: Dependency,
+    }
+
+    #[derive(Deserialize, Debug)]
+    enum Dependency {
+        Struct { version: String },
+    }
+
+    let j = r#"{
+        "dependency": {
+            "Struct": {
+                "version": 1
+            }
+        }
+    }"#;
+
+    test::<Package>(j, "dependency.Struct.version");
+}
+
+#[test]
+fn test_tuple_variant() {
+    #[derive(Deserialize, Debug)]
+    struct Package {
+        dependency: Dependency,
+    }
+
+    #[derive(Deserialize, Debug)]
+    enum Dependency {
+        Tuple(String, String),
+    }
+
+    let j = r#"{
+        "dependency": {
+            "Tuple": ["serde", 1]
+        }
+    }"#;
+
+    test::<Package>(j, "dependency.Tuple.1");
+}
+
+#[test]
+fn test_unknown_field() {
+    #[derive(Deserialize, Debug)]
+    struct Package {
+        dependency: Dependency,
+    }
+
+    #[derive(Deserialize, Debug)]
+    #[serde(deny_unknown_fields)]
+    struct Dependency {
+        version: String,
+    }
+
+    let j = r#"{
+        "dependency": {
+            "version": "1.0",
+            "name": "serde"
+        }
+    }"#;
+
+    test::<Package>(j, "dependency");
+}
+
+#[test]
+fn test_invalid_length() {
+    #[derive(Deserialize, Debug)]
+    struct Package {
+        dependency: Dependency,
+    }
+
+    #[derive(Deserialize, Debug)]
+    struct Dependency(String, String);
+
+    let j = r#"{
+        "dependency": ["serde"]
+    }"#;
+
+    test::<Package>(j, "dependency");
+}
+
+#[test]
+fn test_syntax_error() {
+    #[derive(Deserialize, Debug)]
+    struct Package {
+        dependency: Dependency,
+    }
+
+    #[derive(Deserialize, Debug)]
+    struct Dependency {
+        version: String,
+    }
+
+    let j = r#"{
+        "dependency": {[
+    }"#;
+
+    test::<Package>(j, "dependency");
+}
