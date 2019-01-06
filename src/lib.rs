@@ -1576,9 +1576,16 @@ where
     {
         let chain = self.chain;
         let track = &mut *self.track;
+        let key = &mut self.key;
         self.delegate
-            .next_key_seed(CaptureKey::new(seed, &mut self.key))
-            .map_err(|err| track.trigger(chain, err))
+            .next_key_seed(CaptureKey::new(seed, key))
+            .map_err(|err| {
+                let chain = match key.take() {
+                    Some(key) => Chain::Map { parent: chain, key },
+                    None => Chain::NonStringKey { parent: chain },
+                };
+                track.trigger(&chain, err)
+            })
     }
 
     fn next_value_seed<V>(&mut self, seed: V) -> Result<V::Value, X::Error>

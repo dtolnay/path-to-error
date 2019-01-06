@@ -123,7 +123,7 @@ fn test_unknown_field() {
         }
     }"#;
 
-    test::<Package>(j, "dependency");
+    test::<Package>(j, "dependency.name");
 }
 
 #[test]
@@ -156,8 +156,9 @@ fn test_syntax_error() {
     }
 
     let j = r#"{
-        "dependency": {[
+        "dependency": {
+            "error": *
     }"#;
 
-    test::<Package>(j, "dependency");
+    test::<Package>(j, "dependency.error");
 }
