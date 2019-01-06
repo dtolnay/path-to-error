@@ -104,14 +104,18 @@ impl Path {
                     chain = parent;
                 }
                 Chain::Enum { parent, variant } => {
-                    segments.push(Segment::Enum { variant: variant.clone() });
+                    segments.push(Segment::Enum {
+                        variant: variant.clone(),
+                    });
                     chain = parent;
                 }
                 Chain::Some { parent } => {
                     segments.push(Segment::Option);
                     chain = parent;
                 }
-                Chain::NewtypeStruct { parent } | Chain::NewtypeVariant { parent } => {
+                Chain::NewtypeStruct { parent }
+                | Chain::NewtypeVariant { parent }
+                | Chain::NonStringKey { parent } => {
                     segments.push(Segment::Other);
                     chain = parent;
                 }

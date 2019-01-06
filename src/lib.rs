@@ -116,12 +116,30 @@ impl<'a, 'b, D> Deserializer<'a, 'b, D> {
 #[derive(Clone)]
 enum Chain<'a> {
     Root,
-    Seq { parent: &'a Chain<'a>, index: usize },
-    Map { parent: &'a Chain<'a>, key: String },
-    Enum { parent: &'a Chain<'a>, variant: String },
-    Some { parent: &'a Chain<'a> },
-    NewtypeStruct { parent: &'a Chain<'a> },
-    NewtypeVariant { parent: &'a Chain<'a> },
+    Seq {
+        parent: &'a Chain<'a>,
+        index: usize,
+    },
+    Map {
+        parent: &'a Chain<'a>,
+        key: String,
+    },
+    Enum {
+        parent: &'a Chain<'a>,
+        variant: String,
+    },
+    Some {
+        parent: &'a Chain<'a>,
+    },
+    NewtypeStruct {
+        parent: &'a Chain<'a>,
+    },
+    NewtypeVariant {
+        parent: &'a Chain<'a>,
+    },
+    NonStringKey {
+        parent: &'a Chain<'a>,
+    },
 }
 
 // Plain old forwarding impl.
@@ -821,12 +839,15 @@ where
         self.delegate
             .variant_seed(CaptureKey::new(seed, &mut variant))
             .map_err(|err| track.trigger(chain, err))
-            .and_then(move |(v, vis)| {
-                let chain = Chain::Enum {
-                    parent: chain,
-                    variant: variant.ok_or_else(|| de::Error::custom("non-string key"))?,
+            .map(move |(v, vis)| {
+                let chain = match variant {
+                    Some(variant) => Chain::Enum {
+                        parent: chain,
+                        variant,
+                    },
+                    None => Chain::NonStringKey { parent: chain },
                 };
-                Ok((v, WrapVariant::new(vis, chain, track)))
+                (v, WrapVariant::new(vis, chain, track))
             })
     }
 }
@@ -1471,13 +1492,6 @@ impl<'a, 'b, X> MapAccess<'a, 'b, X> {
             track,
         }
     }
-
-    fn key<E>(&mut self) -> Result<String, E>
-    where
-        E: de::Error,
-    {
-        self.key.take().ok_or_else(|| E::custom("non-string key"))
-    }
 }
 
 impl<'a, 'b, 'de, X> de::MapAccess<'de> for MapAccess<'a, 'b, X>
@@ -1502,9 +1516,9 @@ where
         V: DeserializeSeed<'de>,
     {
         let parent = self.chain;
-        let chain = Chain::Map {
-            parent,
-            key: self.key()?,
+        let chain = match self.key.take() {
+            Some(key) => Chain::Map { parent, key },
+            None => Chain::NonStringKey { parent },
         };
         let track = &mut *self.track;
         self.delegate
