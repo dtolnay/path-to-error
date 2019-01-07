@@ -57,24 +57,20 @@ impl Display for Path {
             return formatter.write_str(".");
         }
 
-        for (i, segment) in self.iter().enumerate() {
-            if i > 0 {
-                formatter.write_str(".")?;
-            }
+        let mut separator = "";
+        for segment in self {
             match segment {
                 Segment::Seq { index } => {
-                    Display::fmt(index, formatter)?;
+                    write!(formatter, "[{}]", index)?;
                 }
-                Segment::Map { key } => {
-                    Display::fmt(key, formatter)?;
-                }
-                Segment::Enum { variant } => {
-                    Display::fmt(variant, formatter)?;
+                Segment::Map { key } | Segment::Enum { variant: key } => {
+                    write!(formatter, "{}{}", separator, key)?;
                 }
                 Segment::Unknown => {
-                    formatter.write_str("?")?;
+                    write!(formatter, "{}?", separator)?;
                 }
             }
+            separator = ".";
         }
 
         Ok(())

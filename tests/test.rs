@@ -39,6 +39,35 @@ fn test_struct() {
 }
 
 #[test]
+fn test_vec() {
+    #[derive(Deserialize, Debug)]
+    struct Package {
+        dependencies: Vec<Dependency>,
+    }
+
+    #[derive(Deserialize, Debug)]
+    struct Dependency {
+        name: String,
+        version: String,
+    }
+
+    let j = r#"{
+        "dependencies": [
+            {
+                "name": "serde",
+                "version": "1.0"
+            },
+            {
+                "name": "serde_json",
+                "version": 1
+            }
+        }
+    }"#;
+
+    test::<Package>(j, "dependencies[1].version");
+}
+
+#[test]
 fn test_option() {
     #[derive(Deserialize, Debug)]
     struct Package {
@@ -100,7 +129,7 @@ fn test_tuple_variant() {
         }
     }"#;
 
-    test::<Package>(j, "dependency.Tuple.1");
+    test::<Package>(j, "dependency.Tuple[1]");
 }
 
 #[test]
