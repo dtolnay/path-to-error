@@ -48,12 +48,14 @@
 #![doc(html_root_url = "https://docs.rs/serde_path_to_error/0.1.1")]
 
 use serde::de::{self, Deserialize, DeserializeSeed, Visitor};
-use std::fmt;
+use std::error::Error as StdError;
+use std::fmt::{self, Display, Formatter, Result as FmtResult};
 
 mod path;
 pub use crate::path::{Path, Segment, Segments};
 
 /// Original deserializer error together with the path at which it occurred.
+#[derive(Clone, Debug)]
 pub struct Error<E> {
     path: Path,
     original: E,
@@ -68,6 +70,23 @@ impl<E> Error<E> {
     /// The Deserializer's underlying error that occurred.
     pub fn into_inner(self) -> E {
         self.original
+    }
+
+    /// Reference to the Deserializer's underlying error that occurred.
+    pub fn inner(&self) -> &E {
+        &self.original
+    }
+}
+
+impl<E: Display> Display for Error<E> {
+    fn fmt(&self, fmt: &mut Formatter) -> FmtResult {
+        write!(fmt, "{}: {}", self.path(), self.inner())
+    }
+}
+
+impl<E: StdError + 'static> StdError for Error<E> {
+    fn source(&self) -> Option<&(dyn StdError + 'static)> {
+        Some(self.inner())
     }
 }
 
