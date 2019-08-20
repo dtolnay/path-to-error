@@ -49,7 +49,7 @@
 
 use serde::de::{self, Deserialize, DeserializeSeed, Visitor};
 use std::error::Error as StdError;
-use std::fmt::{self, Display, Formatter, Result as FmtResult};
+use std::fmt::{self, Display};
 
 mod path;
 pub use crate::path::{Path, Segment, Segments};
@@ -79,8 +79,8 @@ impl<E> Error<E> {
 }
 
 impl<E: Display> Display for Error<E> {
-    fn fmt(&self, fmt: &mut Formatter) -> FmtResult {
-        write!(fmt, "{}: {}", self.path(), self.inner())
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}: {}", self.path(), self.inner())
     }
 }
 
