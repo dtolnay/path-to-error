@@ -8,11 +8,13 @@ use super::Chain;
 /// Use `path.to_string()` to get a string representation of the path with
 /// segments separated by periods, or use `path.iter()` to iterate over
 /// individual segments of the path.
+#[derive(Clone, Debug)]
 pub struct Path {
     segments: Vec<Segment>,
 }
 
 /// Single segment of a path.
+#[derive(Clone, Debug)]
 pub enum Segment {
     Seq { index: usize },
     Map { key: String },
