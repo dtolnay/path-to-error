@@ -53,7 +53,7 @@
 //! }
 //! ```
 
-#![doc(html_root_url = "https://docs.rs/serde_path_to_error/0.1.2")]
+#![doc(html_root_url = "https://docs.rs/serde_path_to_error/0.1.3")]
 
 use serde::de::{self, Deserialize, DeserializeSeed, Visitor};
 use std::error::Error as StdError;
