@@ -56,6 +56,7 @@
 #![doc(html_root_url = "https://docs.rs/serde_path_to_error/0.1.3")]
 
 use serde::de::{self, Deserialize, DeserializeSeed, Visitor};
+use serde::serde_if_integer128;
 use std::error::Error as StdError;
 use std::fmt::{self, Display};
 
@@ -354,6 +355,30 @@ where
         self.de
             .deserialize_i64(Wrap::new(visitor, &chain, track))
             .map_err(|err| track.trigger(&chain, err))
+    }
+
+    serde_if_integer128! {
+        fn deserialize_u128<V>(self, visitor: V) -> Result<V::Value, D::Error>
+        where
+            V: Visitor<'de>,
+        {
+            let chain = self.chain;
+            let track = self.track;
+            self.de
+                .deserialize_u128(Wrap::new(visitor, &chain, track))
+                .map_err(|err| track.trigger(&chain, err))
+        }
+
+        fn deserialize_i128<V>(self, visitor: V) -> Result<V::Value, D::Error>
+        where
+            V: Visitor<'de>,
+        {
+            let chain = self.chain;
+            let track = self.track;
+            self.de
+                .deserialize_i128(Wrap::new(visitor, &chain, track))
+                .map_err(|err| track.trigger(&chain, err))
+        }
     }
 
     fn deserialize_f32<V>(self, visitor: V) -> Result<V::Value, D::Error>
@@ -1120,6 +1145,24 @@ where
     {
         self.delegate
             .deserialize_i64(CaptureKey::new(visitor, self.key))
+    }
+
+    serde_if_integer128! {
+        fn deserialize_u128<V>(self, visitor: V) -> Result<V::Value, X::Error>
+        where
+            V: Visitor<'de>,
+        {
+            self.delegate
+            .deserialize_u128(CaptureKey::new(visitor, self.key))
+        }
+
+        fn deserialize_i128<V>(self, visitor: V) -> Result<V::Value, X::Error>
+        where
+            V: Visitor<'de>,
+        {
+            self.delegate
+            .deserialize_i128(CaptureKey::new(visitor, self.key))
+        }
     }
 
     fn deserialize_f32<V>(self, visitor: V) -> Result<V::Value, X::Error>
