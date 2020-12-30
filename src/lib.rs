@@ -54,6 +54,7 @@
 //! ```
 
 #![doc(html_root_url = "https://docs.rs/serde_path_to_error/0.1.4")]
+#![allow(clippy::new_without_default, clippy::redundant_field_names)]
 
 use serde::de::{self, Deserialize, DeserializeSeed, Visitor};
 use serde::serde_if_integer128;
