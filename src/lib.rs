@@ -54,7 +54,7 @@
 //! ```
 
 #![doc(html_root_url = "https://docs.rs/serde_path_to_error/0.1.4")]
-#![allow(clippy::new_without_default, clippy::redundant_field_names)]
+#![allow(clippy::new_without_default)]
 
 use serde::de::{self, Deserialize, DeserializeSeed, Visitor};
 use serde::serde_if_integer128;
@@ -857,7 +857,7 @@ where
             .visit_some(Deserializer {
                 de: deserializer,
                 chain: Chain::Some { parent: chain },
-                track: track,
+                track,
             })
             .map_err(|err| track.trigger(chain, err))
     }
@@ -872,7 +872,7 @@ where
             .visit_newtype_struct(Deserializer {
                 de: deserializer,
                 chain: Chain::NewtypeStruct { parent: chain },
-                track: track,
+                track,
             })
             .map_err(|err| track.trigger(chain, err))
     }
@@ -1038,10 +1038,7 @@ struct CaptureKey<'a, X> {
 
 impl<'a, X> CaptureKey<'a, X> {
     fn new(delegate: X, key: &'a mut Option<String>) -> Self {
-        CaptureKey {
-            delegate: delegate,
-            key: key,
-        }
+        CaptureKey { delegate, key }
     }
 }
 
@@ -1562,7 +1559,7 @@ where
             .deserialize(Deserializer {
                 de: deserializer,
                 chain: chain.clone(),
-                track: track,
+                track,
             })
             .map_err(|err| track.trigger(&chain, err))
     }
