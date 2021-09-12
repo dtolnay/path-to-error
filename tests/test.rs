@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use serde::Deserialize;
 use serde_derive::Deserialize;
 use std::collections::BTreeMap as Map;
