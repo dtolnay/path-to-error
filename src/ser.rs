@@ -5,6 +5,47 @@ use serde::serde_if_integer128;
 use std::cell::Cell;
 use std::fmt::Display;
 
+/// Entry point for tracking path to Serialize error.
+///
+/// # Example
+///
+/// ```
+/// # use serde_derive::Serialize;
+/// #
+/// use serde::Serialize;
+/// use std::cell::RefCell;
+///
+/// #[derive(Serialize)]
+/// struct Outer<'a> {
+///     k: Inner<'a>,
+/// }
+///
+/// #[derive(Serialize)]
+/// struct Inner<'a> {
+///     refcell: &'a RefCell<String>,
+/// }
+///
+/// let refcell = RefCell::new(String::new());
+/// let value = Outer {
+///     k: Inner { refcell: &refcell },
+/// };
+///
+/// // A RefCell cannot be serialized while it is still mutably borrowed.
+/// let _borrowed = refcell.borrow_mut();
+///
+/// // Some Serializer.
+/// let mut out = Vec::new();
+/// let jser = &mut serde_json::Serializer::new(&mut out);
+///
+/// let result = serde_path_to_error::serialize(&value, jser);
+/// match result {
+///     Ok(_) => panic!("expected failure to serialize RefCell"),
+///     Err(err) => {
+///         let path = err.path().to_string();
+///         assert_eq!(path, "k.refcell");
+///     }
+/// }
+/// ```
 pub fn serialize<T, S>(value: &T, serializer: S) -> Result<S::Ok, Error<S::Error>>
 where
     T: ?Sized + Serialize,
@@ -20,6 +61,38 @@ where
     }
 }
 
+/// Serializer adapter that records path to serialization errors.
+///
+/// # Example
+///
+/// ```
+/// # use serde_derive::Serialize;
+/// #
+/// use serde::Serialize;
+/// use std::collections::BTreeMap;
+///
+/// // Maps with a non-string key are not valid in JSON.
+/// let mut inner_map = BTreeMap::new();
+/// inner_map.insert(vec!['w', 'a', 't'], 0);
+///
+/// let mut outer_map = BTreeMap::new();
+/// outer_map.insert("k", inner_map);
+///
+/// // Some Serializer.
+/// let mut out = Vec::new();
+/// let jser = &mut serde_json::Serializer::new(&mut out);
+///
+/// let mut track = serde_path_to_error::Track::new();
+/// let ps = serde_path_to_error::Serializer::new(jser, &mut track);
+///
+/// match outer_map.serialize(ps) {
+///     Ok(_) => panic!("expected failure to serialize non-string key"),
+///     Err(_) => {
+///         let path = track.path().to_string();
+///         assert_eq!(path, "k");
+///     }
+/// }
+/// ```
 pub struct Serializer<'a, 'b, S> {
     ser: S,
     chain: &'a Chain<'a>,
