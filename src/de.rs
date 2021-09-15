@@ -68,7 +68,7 @@ where
 pub struct Deserializer<'a, 'b, D> {
     de: D,
     chain: Chain<'a>,
-    track: &'b mut Track,
+    track: &'b Track,
 }
 
 impl<'a, 'b, D> Deserializer<'a, 'b, D> {
@@ -1340,11 +1340,11 @@ where
 struct TrackedSeed<'a, 'b, X> {
     seed: X,
     chain: Chain<'a>,
-    track: &'b mut Track,
+    track: &'b Track,
 }
 
 impl<'a, 'b, X> TrackedSeed<'a, 'b, X> {
-    fn new(seed: X, chain: Chain<'a>, track: &'b mut Track) -> Self {
+    fn new(seed: X, chain: Chain<'a>, track: &'b Track) -> Self {
         TrackedSeed { seed, chain, track }
     }
 }
@@ -1376,11 +1376,11 @@ struct SeqAccess<'a, 'b, X> {
     delegate: X,
     chain: &'a Chain<'a>,
     index: usize,
-    track: &'b mut Track,
+    track: &'b Track,
 }
 
 impl<'a, 'b, X> SeqAccess<'a, 'b, X> {
-    fn new(delegate: X, chain: &'a Chain<'a>, track: &'b mut Track) -> Self {
+    fn new(delegate: X, chain: &'a Chain<'a>, track: &'b Track) -> Self {
         SeqAccess {
             delegate,
             chain,
@@ -1406,7 +1406,7 @@ where
             parent,
             index: self.index,
         };
-        let track = &mut *self.track;
+        let track = self.track;
         self.index += 1;
         self.delegate
             .next_element_seed(TrackedSeed::new(seed, chain, track))
@@ -1424,11 +1424,11 @@ struct MapAccess<'a, 'b, X> {
     delegate: X,
     chain: &'a Chain<'a>,
     key: Option<String>,
-    track: &'b mut Track,
+    track: &'b Track,
 }
 
 impl<'a, 'b, X> MapAccess<'a, 'b, X> {
-    fn new(delegate: X, chain: &'a Chain<'a>, track: &'b mut Track) -> Self {
+    fn new(delegate: X, chain: &'a Chain<'a>, track: &'b Track) -> Self {
         MapAccess {
             delegate,
             chain,
@@ -1449,7 +1449,7 @@ where
         K: DeserializeSeed<'de>,
     {
         let chain = self.chain;
-        let track = &mut *self.track;
+        let track = self.track;
         let key = &mut self.key;
         self.delegate
             .next_key_seed(CaptureKey::new(seed, key))
@@ -1471,7 +1471,7 @@ where
             Some(key) => Chain::Map { parent, key },
             None => Chain::NonStringKey { parent },
         };
-        let track = &mut *self.track;
+        let track = self.track;
         self.delegate
             .next_value_seed(TrackedSeed::new(seed, chain, track))
             .map_err(|err| track.trigger(parent, err))
