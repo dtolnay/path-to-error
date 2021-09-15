@@ -99,6 +99,13 @@ impl Path {
                     segments.push(Segment::Map { key: key.clone() });
                     chain = parent;
                 }
+                Chain::Struct { parent, key } => {
+                    let key = *key;
+                    segments.push(Segment::Map {
+                        key: key.to_owned(),
+                    });
+                    chain = parent;
+                }
                 Chain::Enum { parent, variant } => {
                     segments.push(Segment::Enum {
                         variant: variant.clone(),

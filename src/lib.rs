@@ -63,6 +63,7 @@
 
 mod de;
 mod path;
+mod ser;
 mod wrap;
 
 use std::cell::Cell;
@@ -71,6 +72,7 @@ use std::fmt::{self, Display};
 
 pub use crate::de::{deserialize, Deserializer};
 pub use crate::path::{Path, Segment, Segments};
+pub use crate::ser::{serialize, Serializer};
 
 /// Original deserializer error together with the path at which it occurred.
 #[derive(Clone, Debug)]
@@ -155,6 +157,10 @@ enum Chain<'a> {
     Map {
         parent: &'a Chain<'a>,
         key: String,
+    },
+    Struct {
+        parent: &'a Chain<'a>,
+        key: &'static str,
     },
     Enum {
         parent: &'a Chain<'a>,
