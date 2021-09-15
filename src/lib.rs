@@ -63,6 +63,7 @@
 mod de;
 mod path;
 
+use std::cell::Cell;
 use std::error::Error as StdError;
 use std::fmt::{self, Display};
 
@@ -111,31 +112,34 @@ impl<E: StdError + 'static> StdError for Error<E> {
 /// you are managing your own `Deserializer`, see the usage example on
 /// [`Deserializer`].
 pub struct Track {
-    path: Option<Path>,
+    path: Cell<Option<Path>>,
 }
 
 impl Track {
     /// Empty state with no error having happened yet.
     pub fn new() -> Self {
-        Track { path: None }
+        Track {
+            path: Cell::new(None),
+        }
     }
 
     /// Gets path at which the error occurred. Only meaningful after we know
     /// that an error has occurred. Returns an empty path otherwise.
     pub fn path(self) -> Path {
-        self.path.unwrap_or_else(Path::empty)
+        self.path.into_inner().unwrap_or_else(Path::empty)
     }
 
     #[inline]
-    fn trigger<E>(&mut self, chain: &Chain, err: E) -> E {
+    fn trigger<E>(&self, chain: &Chain, err: E) -> E {
         self.trigger_impl(chain);
         err
     }
 
-    fn trigger_impl(&mut self, chain: &Chain) {
-        if self.path.is_none() {
-            self.path = Some(Path::from_chain(chain));
-        }
+    fn trigger_impl(&self, chain: &Chain) {
+        self.path.set(Some(match self.path.take() {
+            Some(already_set) => already_set,
+            None => Path::from_chain(chain),
+        }));
     }
 }
 
@@ -172,18 +176,18 @@ enum Chain<'a> {
 struct Wrap<'a, 'b, X> {
     delegate: X,
     chain: &'a Chain<'a>,
-    track: &'b mut Track,
+    track: &'b Track,
 }
 
 // Wrapper that attaches context to a `VariantAccess`.
 struct WrapVariant<'a, 'b, X> {
     delegate: X,
     chain: Chain<'a>,
-    track: &'b mut Track,
+    track: &'b Track,
 }
 
 impl<'a, 'b, X> Wrap<'a, 'b, X> {
-    fn new(delegate: X, chain: &'a Chain<'a>, track: &'b mut Track) -> Self {
+    fn new(delegate: X, chain: &'a Chain<'a>, track: &'b Track) -> Self {
         Wrap {
             delegate,
             chain,
@@ -193,7 +197,7 @@ impl<'a, 'b, X> Wrap<'a, 'b, X> {
 }
 
 impl<'a, 'b, X> WrapVariant<'a, 'b, X> {
-    fn new(delegate: X, chain: Chain<'a>, track: &'b mut Track) -> Self {
+    fn new(delegate: X, chain: Chain<'a>, track: &'b Track) -> Self {
         WrapVariant {
             delegate,
             chain,
