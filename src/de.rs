@@ -1,4 +1,5 @@
-use crate::{Chain, Error, Track, Wrap, WrapVariant};
+use crate::wrap::{Wrap, WrapVariant};
+use crate::{Chain, Error, Track};
 use serde::de::{self, Deserialize, DeserializeSeed, Visitor};
 use serde::serde_if_integer128;
 use std::fmt;
