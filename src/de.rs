@@ -566,6 +566,30 @@ where
             .map_err(|err| track.trigger(chain, err))
     }
 
+    serde_if_integer128! {
+        fn visit_i128<E>(self, v: i128) -> Result<Self::Value, E>
+        where
+            E: de::Error,
+        {
+            let chain = self.chain;
+            let track = self.track;
+            self.delegate
+                .visit_i128(v)
+                .map_err(|err| track.trigger(chain, err))
+        }
+
+        fn visit_u128<E>(self, v: u128) -> Result<Self::Value, E>
+        where
+            E: de::Error,
+        {
+            let chain = self.chain;
+            let track = self.track;
+            self.delegate
+                .visit_u128(v)
+                .map_err(|err| track.trigger(chain, err))
+        }
+    }
+
     fn visit_f32<E>(self, v: f32) -> Result<Self::Value, E>
     where
         E: de::Error,
@@ -1218,6 +1242,22 @@ where
         E: de::Error,
     {
         self.delegate.visit_u64(v)
+    }
+
+    serde_if_integer128! {
+        fn visit_i128<E>(self, v: i128) -> Result<Self::Value, E>
+        where
+            E: de::Error,
+        {
+            self.delegate.visit_i128(v)
+        }
+
+        fn visit_u128<E>(self, v: u128) -> Result<Self::Value, E>
+        where
+            E: de::Error,
+        {
+            self.delegate.visit_u128(v)
+        }
     }
 
     fn visit_f32<E>(self, v: f32) -> Result<Self::Value, E>
