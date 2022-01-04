@@ -1,6 +1,6 @@
 [package]
 name = "serde_path_to_error"
-version = "0.1.5" # remember to update html_root_url
+version = "0.1.6" # remember to update html_root_url
 authors = ["David Tolnay <dtolnay@gmail.com>"]
 license = "MIT OR Apache-2.0"
 description = "Path to the element that failed to deserialize"

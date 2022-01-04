@@ -53,7 +53,7 @@
 //! }
 //! ```
 
-#![doc(html_root_url = "https://docs.rs/serde_path_to_error/0.1.5")]
+#![doc(html_root_url = "https://docs.rs/serde_path_to_error/0.1.6")]
 #![allow(
     clippy::missing_errors_doc,
     clippy::module_name_repetitions,
