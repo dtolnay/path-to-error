@@ -1,4 +1,4 @@
-#![allow(dead_code)]
+#![allow(clippy::unreadable_literal, dead_code)]
 
 use serde::{serde_if_integer128, Deserialize};
 use serde_derive::Deserialize;
