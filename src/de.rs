@@ -1172,6 +1172,10 @@ where
         self.delegate
             .deserialize_identifier(CaptureKey::new(visitor, self.key))
     }
+
+    fn is_human_readable(&self) -> bool {
+        self.delegate.is_human_readable()
+    }
 }
 
 // Forwarding impl except `visit_str` and `visit_string` which save the string.
