@@ -53,7 +53,7 @@
 //! }
 //! ```
 
-#![doc(html_root_url = "https://docs.rs/serde_path_to_error/0.1.6")]
+#![doc(html_root_url = "https://docs.rs/serde_path_to_error/0.1.7")]
 #![allow(
     clippy::iter_not_returning_iterator, // https://github.com/rust-lang/rust-clippy/issues/8285
     clippy::missing_errors_doc,
