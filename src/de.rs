@@ -454,6 +454,10 @@ where
             .deserialize_identifier(Wrap::new(visitor, &chain, track))
             .map_err(|err| track.trigger(&chain, err))
     }
+
+    fn is_human_readable(&self) -> bool {
+        self.de.is_human_readable()
+    }
 }
 
 // Forwarding impl to preserve context.
