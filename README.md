@@ -3,7 +3,7 @@
 [<img alt="github" src="https://img.shields.io/badge/github-dtolnay/path--to--error-8da0cb?style=for-the-badge&labelColor=555555&logo=github" height="20">](https://github.com/dtolnay/path-to-error)
 [<img alt="crates.io" src="https://img.shields.io/crates/v/serde_path_to_error.svg?style=for-the-badge&color=fc8d62&logo=rust" height="20">](https://crates.io/crates/serde_path_to_error)
 [<img alt="docs.rs" src="https://img.shields.io/badge/docs.rs-serde__path__to__error-66c2a5?style=for-the-badge&labelColor=555555&logo=docs.rs" height="20">](https://docs.rs/serde_path_to_error)
-[<img alt="build status" src="https://img.shields.io/github/workflow/status/dtolnay/path-to-error/CI/master?style=for-the-badge" height="20">](https://github.com/dtolnay/path-to-error/actions?query=branch%3Amaster)
+[<img alt="build status" src="https://img.shields.io/github/actions/workflow/status/dtolnay/path-to-error/ci.yml?branch=master&style=for-the-badge" height="20">](https://github.com/dtolnay/path-to-error/actions?query=branch%3Amaster)
 
 Find out the path at which a deserialization error occurred. This crate provides
 a wrapper that works with any existing Serde `Deserializer` and exposes the
