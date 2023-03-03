@@ -109,13 +109,13 @@ impl<E> Error<E> {
 
 impl<E: Display> Display for Error<E> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}: {}", self.path(), self.inner())
+        write!(f, "{}: {}", self.path, self.original)
     }
 }
 
 impl<E: StdError> StdError for Error<E> {
     fn source(&self) -> Option<&(dyn StdError + 'static)> {
-        self.inner().source()
+        self.original.source()
     }
 }
 
