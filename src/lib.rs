@@ -84,6 +84,13 @@ pub struct Error<E> {
 }
 
 impl<E> Error<E> {
+    pub fn new(path: Path, inner: E) -> Self {
+        Error {
+            path,
+            original: inner,
+        }
+    }
+
     /// Element path at which this deserialization error occurred.
     pub fn path(&self) -> &Path {
         &self.path
