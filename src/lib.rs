@@ -106,9 +106,9 @@ impl<E: Display> Display for Error<E> {
     }
 }
 
-impl<E: StdError + 'static> StdError for Error<E> {
+impl<E: StdError> StdError for Error<E> {
     fn source(&self) -> Option<&(dyn StdError + 'static)> {
-        Some(self.inner())
+        self.inner().source()
     }
 }
 
