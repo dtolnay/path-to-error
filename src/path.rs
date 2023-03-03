@@ -126,4 +126,17 @@ impl Path {
         segments.reverse();
         Path { segments }
     }
+
+    pub(crate) fn is_only_unknown(&self) -> bool {
+        self.segments.iter().all(Segment::is_unknown)
+    }
+}
+
+impl Segment {
+    fn is_unknown(&self) -> bool {
+        match self {
+            Segment::Unknown => true,
+            _ => false,
+        }
+    }
 }

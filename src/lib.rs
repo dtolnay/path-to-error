@@ -109,7 +109,10 @@ impl<E> Error<E> {
 
 impl<E: Display> Display for Error<E> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}: {}", self.path, self.original)
+        if !self.path.is_only_unknown() {
+            write!(f, "{}: ", self.path)?;
+        }
+        write!(f, "{}", self.original)
     }
 }
 
