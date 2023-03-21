@@ -57,6 +57,12 @@ impl<'a> Iterator for Segments<'a> {
     }
 }
 
+impl<'a> DoubleEndedIterator for Segments<'a> {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        self.iter.next_back()
+    }
+}
+
 impl Display for Path {
     fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
         if self.segments.is_empty() {
