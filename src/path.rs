@@ -63,6 +63,12 @@ impl<'a> DoubleEndedIterator for Segments<'a> {
     }
 }
 
+impl<'a> ExactSizeIterator for Segments<'a> {
+    fn len(&self) -> usize {
+        self.iter.len()
+    }
+}
+
 impl Display for Path {
     fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
         if self.segments.is_empty() {
