@@ -51,6 +51,22 @@ impl<'a> Iterator for Segments<'a> {
     fn next(&mut self) -> Option<Self::Item> {
         self.iter.next()
     }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.iter.size_hint()
+    }
+}
+
+impl<'a> DoubleEndedIterator for Segments<'a> {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        self.iter.next_back()
+    }
+}
+
+impl<'a> ExactSizeIterator for Segments<'a> {
+    fn len(&self) -> usize {
+        self.iter.len()
+    }
 }
 
 impl Display for Path {
