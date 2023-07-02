@@ -1,7 +1,6 @@
 use crate::wrap::Wrap;
 use crate::{Chain, Error, Track};
 use serde::ser::{self, Serialize};
-use serde::serde_if_integer128;
 use std::cell::Cell;
 use std::fmt::Display;
 
@@ -163,14 +162,12 @@ where
             .map_err(|err| track.trigger(chain, err))
     }
 
-    serde_if_integer128! {
-        fn serialize_i128(self, v: i128) -> Result<Self::Ok, Self::Error> {
-            let chain = self.chain;
-            let track = self.track;
-            self.ser
-                .serialize_i128(v)
-                .map_err(|err| track.trigger(chain, err))
-        }
+    fn serialize_i128(self, v: i128) -> Result<Self::Ok, Self::Error> {
+        let chain = self.chain;
+        let track = self.track;
+        self.ser
+            .serialize_i128(v)
+            .map_err(|err| track.trigger(chain, err))
     }
 
     fn serialize_u8(self, v: u8) -> Result<Self::Ok, Self::Error> {
@@ -205,14 +202,12 @@ where
             .map_err(|err| track.trigger(chain, err))
     }
 
-    serde_if_integer128! {
-        fn serialize_u128(self, v: u128) -> Result<Self::Ok, Self::Error> {
-            let chain = self.chain;
-            let track = self.track;
-            self.ser
-                .serialize_u128(v)
-                .map_err(|err| track.trigger(chain, err))
-        }
+    fn serialize_u128(self, v: u128) -> Result<Self::Ok, Self::Error> {
+        let chain = self.chain;
+        let track = self.track;
+        self.ser
+            .serialize_u128(v)
+            .map_err(|err| track.trigger(chain, err))
     }
 
     fn serialize_f32(self, v: f32) -> Result<Self::Ok, Self::Error> {
@@ -804,11 +799,9 @@ where
         self.delegate.serialize_i64(v)
     }
 
-    serde_if_integer128! {
-        fn serialize_i128(self, v: i128) -> Result<Self::Ok, Self::Error> {
-            self.out.set(Some(v.to_string()));
-            self.delegate.serialize_i128(v)
-        }
+    fn serialize_i128(self, v: i128) -> Result<Self::Ok, Self::Error> {
+        self.out.set(Some(v.to_string()));
+        self.delegate.serialize_i128(v)
     }
 
     fn serialize_u8(self, v: u8) -> Result<Self::Ok, Self::Error> {
@@ -831,11 +824,9 @@ where
         self.delegate.serialize_u64(v)
     }
 
-    serde_if_integer128! {
-        fn serialize_u128(self, v: u128) -> Result<Self::Ok, Self::Error> {
-            self.out.set(Some(v.to_string()));
-            self.delegate.serialize_u128(v)
-        }
+    fn serialize_u128(self, v: u128) -> Result<Self::Ok, Self::Error> {
+        self.out.set(Some(v.to_string()));
+        self.delegate.serialize_u128(v)
     }
 
     fn serialize_f32(self, v: f32) -> Result<Self::Ok, Self::Error> {

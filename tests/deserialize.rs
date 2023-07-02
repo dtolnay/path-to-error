@@ -1,6 +1,6 @@
 #![allow(clippy::unreadable_literal, dead_code)]
 
-use serde::{serde_if_integer128, Deserialize};
+use serde::Deserialize;
 use serde_derive::Deserialize;
 use std::collections::BTreeMap as Map;
 use std::fmt::Debug;
@@ -194,22 +194,19 @@ fn test_syntax_error() {
     test::<Package>(j, "dependency.error");
 }
 
-serde_if_integer128! {
-    #[test]
-    fn test_u128() {
-        #[derive(Deserialize, Debug)]
-        struct Container {
-            n: u128,
-        }
-
-        let j = r#"{
-            "n": 130033514578017493995102500318550798591
-        }"#;
-
-        let de = &mut serde_json::Deserializer::from_str(j);
-        let container: Container =
-            serde_path_to_error::deserialize(de).expect("failed to deserialize");
-
-        assert_eq!(container.n, 130033514578017493995102500318550798591u128);
+#[test]
+fn test_u128() {
+    #[derive(Deserialize, Debug)]
+    struct Container {
+        n: u128,
     }
+
+    let j = r#"{
+        "n": 130033514578017493995102500318550798591
+    }"#;
+
+    let de = &mut serde_json::Deserializer::from_str(j);
+    let container: Container = serde_path_to_error::deserialize(de).expect("failed to deserialize");
+
+    assert_eq!(container.n, 130033514578017493995102500318550798591u128);
 }
