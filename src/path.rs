@@ -150,9 +150,6 @@ impl Path {
 
 impl Segment {
     fn is_unknown(&self) -> bool {
-        match self {
-            Segment::Unknown => true,
-            _ => false,
-        }
+        matches!(self, Segment::Unknown)
     }
 }
