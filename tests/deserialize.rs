@@ -210,3 +210,19 @@ fn test_u128() {
 
     assert_eq!(container.n, 130033514578017493995102500318550798591u128);
 }
+
+#[test]
+fn test_map_nonstring_key() {
+    #[derive(Deserialize, Debug)]
+    struct Dependency {
+        version: String,
+    }
+
+    let j = r#"{
+        "100": {
+            "version": false
+        }
+    }"#;
+
+    test::<Map<i32, Dependency>>(j, "100.version");
+}
