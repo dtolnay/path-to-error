@@ -775,57 +775,58 @@ where
     type SerializeStructVariant = S::SerializeStructVariant;
 
     fn serialize_bool(self, v: bool) -> Result<Self::Ok, Self::Error> {
-        self.out.set(Some(v.to_string()));
+        let string = if v { "true" } else { "false" };
+        self.out.set(Some(string.to_owned()));
         self.delegate.serialize_bool(v)
     }
 
     fn serialize_i8(self, v: i8) -> Result<Self::Ok, Self::Error> {
-        self.out.set(Some(v.to_string()));
+        self.out.set(Some(itoa::Buffer::new().format(v).to_owned()));
         self.delegate.serialize_i8(v)
     }
 
     fn serialize_i16(self, v: i16) -> Result<Self::Ok, Self::Error> {
-        self.out.set(Some(v.to_string()));
+        self.out.set(Some(itoa::Buffer::new().format(v).to_owned()));
         self.delegate.serialize_i16(v)
     }
 
     fn serialize_i32(self, v: i32) -> Result<Self::Ok, Self::Error> {
-        self.out.set(Some(v.to_string()));
+        self.out.set(Some(itoa::Buffer::new().format(v).to_owned()));
         self.delegate.serialize_i32(v)
     }
 
     fn serialize_i64(self, v: i64) -> Result<Self::Ok, Self::Error> {
-        self.out.set(Some(v.to_string()));
+        self.out.set(Some(itoa::Buffer::new().format(v).to_owned()));
         self.delegate.serialize_i64(v)
     }
 
     fn serialize_i128(self, v: i128) -> Result<Self::Ok, Self::Error> {
-        self.out.set(Some(v.to_string()));
+        self.out.set(Some(itoa::Buffer::new().format(v).to_owned()));
         self.delegate.serialize_i128(v)
     }
 
     fn serialize_u8(self, v: u8) -> Result<Self::Ok, Self::Error> {
-        self.out.set(Some(v.to_string()));
+        self.out.set(Some(itoa::Buffer::new().format(v).to_owned()));
         self.delegate.serialize_u8(v)
     }
 
     fn serialize_u16(self, v: u16) -> Result<Self::Ok, Self::Error> {
-        self.out.set(Some(v.to_string()));
+        self.out.set(Some(itoa::Buffer::new().format(v).to_owned()));
         self.delegate.serialize_u16(v)
     }
 
     fn serialize_u32(self, v: u32) -> Result<Self::Ok, Self::Error> {
-        self.out.set(Some(v.to_string()));
+        self.out.set(Some(itoa::Buffer::new().format(v).to_owned()));
         self.delegate.serialize_u32(v)
     }
 
     fn serialize_u64(self, v: u64) -> Result<Self::Ok, Self::Error> {
-        self.out.set(Some(v.to_string()));
+        self.out.set(Some(itoa::Buffer::new().format(v).to_owned()));
         self.delegate.serialize_u64(v)
     }
 
     fn serialize_u128(self, v: u128) -> Result<Self::Ok, Self::Error> {
-        self.out.set(Some(v.to_string()));
+        self.out.set(Some(itoa::Buffer::new().format(v).to_owned()));
         self.delegate.serialize_u128(v)
     }
 
