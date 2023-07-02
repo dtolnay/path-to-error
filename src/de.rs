@@ -1,7 +1,6 @@
 use crate::wrap::{Wrap, WrapVariant};
 use crate::{Chain, Error, Track};
 use serde::de::{self, Deserialize, DeserializeSeed, Visitor};
-use serde::serde_if_integer128;
 use std::fmt;
 
 /// Entry point. See [crate documentation][crate] for an example.
@@ -155,6 +154,17 @@ where
             .map_err(|err| track.trigger(&chain, err))
     }
 
+    fn deserialize_u128<V>(self, visitor: V) -> Result<V::Value, D::Error>
+    where
+        V: Visitor<'de>,
+    {
+        let chain = self.chain;
+        let track = self.track;
+        self.de
+            .deserialize_u128(Wrap::new(visitor, &chain, track))
+            .map_err(|err| track.trigger(&chain, err))
+    }
+
     fn deserialize_i8<V>(self, visitor: V) -> Result<V::Value, D::Error>
     where
         V: Visitor<'de>,
@@ -199,28 +209,15 @@ where
             .map_err(|err| track.trigger(&chain, err))
     }
 
-    serde_if_integer128! {
-        fn deserialize_u128<V>(self, visitor: V) -> Result<V::Value, D::Error>
-        where
-            V: Visitor<'de>,
-        {
-            let chain = self.chain;
-            let track = self.track;
-            self.de
-                .deserialize_u128(Wrap::new(visitor, &chain, track))
-                .map_err(|err| track.trigger(&chain, err))
-        }
-
-        fn deserialize_i128<V>(self, visitor: V) -> Result<V::Value, D::Error>
-        where
-            V: Visitor<'de>,
-        {
-            let chain = self.chain;
-            let track = self.track;
-            self.de
-                .deserialize_i128(Wrap::new(visitor, &chain, track))
-                .map_err(|err| track.trigger(&chain, err))
-        }
+    fn deserialize_i128<V>(self, visitor: V) -> Result<V::Value, D::Error>
+    where
+        V: Visitor<'de>,
+    {
+        let chain = self.chain;
+        let track = self.track;
+        self.de
+            .deserialize_i128(Wrap::new(visitor, &chain, track))
+            .map_err(|err| track.trigger(&chain, err))
     }
 
     fn deserialize_f32<V>(self, visitor: V) -> Result<V::Value, D::Error>
@@ -526,6 +523,17 @@ where
             .map_err(|err| track.trigger(chain, err))
     }
 
+    fn visit_i128<E>(self, v: i128) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        let chain = self.chain;
+        let track = self.track;
+        self.delegate
+            .visit_i128(v)
+            .map_err(|err| track.trigger(chain, err))
+    }
+
     fn visit_u8<E>(self, v: u8) -> Result<Self::Value, E>
     where
         E: de::Error,
@@ -570,28 +578,15 @@ where
             .map_err(|err| track.trigger(chain, err))
     }
 
-    serde_if_integer128! {
-        fn visit_i128<E>(self, v: i128) -> Result<Self::Value, E>
-        where
-            E: de::Error,
-        {
-            let chain = self.chain;
-            let track = self.track;
-            self.delegate
-                .visit_i128(v)
-                .map_err(|err| track.trigger(chain, err))
-        }
-
-        fn visit_u128<E>(self, v: u128) -> Result<Self::Value, E>
-        where
-            E: de::Error,
-        {
-            let chain = self.chain;
-            let track = self.track;
-            self.delegate
-                .visit_u128(v)
-                .map_err(|err| track.trigger(chain, err))
-        }
+    fn visit_u128<E>(self, v: u128) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        let chain = self.chain;
+        let track = self.track;
+        self.delegate
+            .visit_u128(v)
+            .map_err(|err| track.trigger(chain, err))
     }
 
     fn visit_f32<E>(self, v: f32) -> Result<Self::Value, E>
@@ -948,6 +943,14 @@ where
             .deserialize_u64(CaptureKey::new(visitor, self.key))
     }
 
+    fn deserialize_u128<V>(self, visitor: V) -> Result<V::Value, X::Error>
+    where
+        V: Visitor<'de>,
+    {
+        self.delegate
+            .deserialize_u128(CaptureKey::new(visitor, self.key))
+    }
+
     fn deserialize_i8<V>(self, visitor: V) -> Result<V::Value, X::Error>
     where
         V: Visitor<'de>,
@@ -980,22 +983,12 @@ where
             .deserialize_i64(CaptureKey::new(visitor, self.key))
     }
 
-    serde_if_integer128! {
-        fn deserialize_u128<V>(self, visitor: V) -> Result<V::Value, X::Error>
-        where
-            V: Visitor<'de>,
-        {
-            self.delegate
-                .deserialize_u128(CaptureKey::new(visitor, self.key))
-        }
-
-        fn deserialize_i128<V>(self, visitor: V) -> Result<V::Value, X::Error>
-        where
-            V: Visitor<'de>,
-        {
-            self.delegate
-                .deserialize_i128(CaptureKey::new(visitor, self.key))
-        }
+    fn deserialize_i128<V>(self, visitor: V) -> Result<V::Value, X::Error>
+    where
+        V: Visitor<'de>,
+    {
+        self.delegate
+            .deserialize_i128(CaptureKey::new(visitor, self.key))
     }
 
     fn deserialize_f32<V>(self, visitor: V) -> Result<V::Value, X::Error>
@@ -1224,6 +1217,13 @@ where
         self.delegate.visit_i64(v)
     }
 
+    fn visit_i128<E>(self, v: i128) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        self.delegate.visit_i128(v)
+    }
+
     fn visit_u8<E>(self, v: u8) -> Result<Self::Value, E>
     where
         E: de::Error,
@@ -1252,20 +1252,11 @@ where
         self.delegate.visit_u64(v)
     }
 
-    serde_if_integer128! {
-        fn visit_i128<E>(self, v: i128) -> Result<Self::Value, E>
-        where
-            E: de::Error,
-        {
-            self.delegate.visit_i128(v)
-        }
-
-        fn visit_u128<E>(self, v: u128) -> Result<Self::Value, E>
-        where
-            E: de::Error,
-        {
-            self.delegate.visit_u128(v)
-        }
+    fn visit_u128<E>(self, v: u128) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        self.delegate.visit_u128(v)
     }
 
     fn visit_f32<E>(self, v: f32) -> Result<Self::Value, E>
