@@ -1186,6 +1186,8 @@ where
     where
         E: de::Error,
     {
+        let string = if v { "true" } else { "false" };
+        *self.key = Some(string.to_owned());
         self.delegate.visit_bool(v)
     }
 
@@ -1193,6 +1195,7 @@ where
     where
         E: de::Error,
     {
+        *self.key = Some(itoa::Buffer::new().format(v).to_owned());
         self.delegate.visit_i8(v)
     }
 
@@ -1200,6 +1203,7 @@ where
     where
         E: de::Error,
     {
+        *self.key = Some(itoa::Buffer::new().format(v).to_owned());
         self.delegate.visit_i16(v)
     }
 
@@ -1207,6 +1211,7 @@ where
     where
         E: de::Error,
     {
+        *self.key = Some(itoa::Buffer::new().format(v).to_owned());
         self.delegate.visit_i32(v)
     }
 
@@ -1214,6 +1219,7 @@ where
     where
         E: de::Error,
     {
+        *self.key = Some(itoa::Buffer::new().format(v).to_owned());
         self.delegate.visit_i64(v)
     }
 
@@ -1221,6 +1227,7 @@ where
     where
         E: de::Error,
     {
+        *self.key = Some(itoa::Buffer::new().format(v).to_owned());
         self.delegate.visit_i128(v)
     }
 
@@ -1228,6 +1235,7 @@ where
     where
         E: de::Error,
     {
+        *self.key = Some(itoa::Buffer::new().format(v).to_owned());
         self.delegate.visit_u8(v)
     }
 
@@ -1235,6 +1243,7 @@ where
     where
         E: de::Error,
     {
+        *self.key = Some(itoa::Buffer::new().format(v).to_owned());
         self.delegate.visit_u16(v)
     }
 
@@ -1242,6 +1251,7 @@ where
     where
         E: de::Error,
     {
+        *self.key = Some(itoa::Buffer::new().format(v).to_owned());
         self.delegate.visit_u32(v)
     }
 
@@ -1249,6 +1259,7 @@ where
     where
         E: de::Error,
     {
+        *self.key = Some(itoa::Buffer::new().format(v).to_owned());
         self.delegate.visit_u64(v)
     }
 
@@ -1256,6 +1267,7 @@ where
     where
         E: de::Error,
     {
+        *self.key = Some(itoa::Buffer::new().format(v).to_owned());
         self.delegate.visit_u128(v)
     }
 
