@@ -38,11 +38,15 @@ fn test_refcell_already_borrowed() {
 
 #[test]
 fn test_map_nonstring_key() {
-    let mut inner_map = BTreeMap::new();
-    inner_map.insert(b"", 0);
+    fn singleton_map<K: Ord, V>(key: K, value: V) -> BTreeMap<K, V> {
+        let mut map = BTreeMap::new();
+        map.insert(key, value);
+        map
+    }
 
-    let mut outer_map = BTreeMap::new();
-    outer_map.insert("k", inner_map);
+    let map = singleton_map(b"", 0);
+    let map = singleton_map("k", map);
+    let map = singleton_map(100, map);
 
-    test(&outer_map, "k");
+    test(&map, "100.k");
 }
