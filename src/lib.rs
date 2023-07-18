@@ -133,7 +133,7 @@ pub struct Track {
 
 impl Track {
     /// Empty state with no error having happened yet.
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Track {
             path: Cell::new(None),
         }
