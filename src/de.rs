@@ -9,8 +9,8 @@ where
     D: de::Deserializer<'de>,
     T: Deserialize<'de>,
 {
-    let mut track = Track::new();
-    match T::deserialize(Deserializer::new(deserializer, &mut track)) {
+    let track = Track::new();
+    match T::deserialize(Deserializer::new(deserializer, &track)) {
         Ok(t) => Ok(t),
         Err(err) => Err(Error {
             path: track.path(),
@@ -72,7 +72,7 @@ pub struct Deserializer<'a, 'b, D> {
 }
 
 impl<'a, 'b, D> Deserializer<'a, 'b, D> {
-    pub fn new(de: D, track: &'b mut Track) -> Self {
+    pub fn new(de: D, track: &'b Track) -> Self {
         Deserializer {
             de,
             chain: Chain::Root,
