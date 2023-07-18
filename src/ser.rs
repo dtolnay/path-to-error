@@ -50,8 +50,8 @@ where
     T: ?Sized + Serialize,
     S: ser::Serializer,
 {
-    let track = Track::new();
-    match T::serialize(value, Serializer::new(serializer, &track)) {
+    let mut track = Track::new();
+    match T::serialize(value, Serializer::new(serializer, &mut track)) {
         Ok(ok) => Ok(ok),
         Err(err) => Err(Error {
             path: track.path(),
@@ -99,7 +99,7 @@ pub struct Serializer<'a, 'b, S> {
 }
 
 impl<'a, 'b, S> Serializer<'a, 'b, S> {
-    pub fn new(ser: S, track: &'b Track) -> Self {
+    pub fn new(ser: S, track: &'b mut Track) -> Self {
         Serializer {
             ser,
             chain: &Chain::Root,
