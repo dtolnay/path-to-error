@@ -4,6 +4,7 @@ version = "0.1.14"
 authors = ["David Tolnay <dtolnay@gmail.com>"]
 categories = ["encoding"]
 description = "Path to the element that failed to deserialize"
+documentation = "https://docs.rs/serde_path_to_error"
 edition = "2021"
 keywords = ["serde", "serialization"]
 license = "MIT OR Apache-2.0"
