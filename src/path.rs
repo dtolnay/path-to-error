@@ -77,7 +77,7 @@ impl Display for Path {
 
         let mut separator = "";
         for segment in self {
-            if !segment.is_seq() {
+            if !matches!(segment, Segment::Seq { .. }) {
                 formatter.write_str(separator)?;
             }
             write!(formatter, "{}", segment)?;
@@ -154,10 +154,6 @@ impl Display for Segment {
 }
 
 impl Segment {
-    fn is_seq(&self) -> bool {
-        matches!(self, Segment::Seq { .. })
-    }
-
     fn is_unknown(&self) -> bool {
         matches!(self, Segment::Unknown)
     }
