@@ -20,13 +20,20 @@ where
                 // Extract the field name from the error message
                 if let Some(field_name) = err_str.split('`').nth(1) {
                     let field_name = field_name.trim_end_matches('`');
-                    let mut segments = path.iter().map(|s| match s {
-                        Segment::Map { key } => Segment::Map { key: key.clone() },
-                        Segment::Seq { index } => Segment::Seq { index: *index },
-                        Segment::Enum { variant } => Segment::Enum { variant: variant.clone() },
-                        Segment::Unknown => Segment::Unknown,
-                    }).collect::<Vec<_>>();
-                    segments.push(Segment::Map { key: field_name.to_string() });
+                    let mut segments = path
+                        .iter()
+                        .map(|s| match s {
+                            Segment::Map { key } => Segment::Map { key: key.clone() },
+                            Segment::Seq { index } => Segment::Seq { index: *index },
+                            Segment::Enum { variant } => Segment::Enum {
+                                variant: variant.clone(),
+                            },
+                            Segment::Unknown => Segment::Unknown,
+                        })
+                        .collect::<Vec<_>>();
+                    segments.push(Segment::Map {
+                        key: field_name.to_string(),
+                    });
                     Err(Error {
                         path: Path::with_segments(segments),
                         original: err,
@@ -41,13 +48,20 @@ where
                 // Extract the field name from the error message
                 if let Some(field_name) = err_str.split('`').nth(1) {
                     let field_name = field_name.trim_end_matches('`');
-                    let mut segments = path.iter().map(|s| match s {
-                        Segment::Map { key } => Segment::Map { key: key.clone() },
-                        Segment::Seq { index } => Segment::Seq { index: *index },
-                        Segment::Enum { variant } => Segment::Enum { variant: variant.clone() },
-                        Segment::Unknown => Segment::Unknown,
-                    }).collect::<Vec<_>>();
-                    segments.push(Segment::Map { key: field_name.to_string() });
+                    let mut segments = path
+                        .iter()
+                        .map(|s| match s {
+                            Segment::Map { key } => Segment::Map { key: key.clone() },
+                            Segment::Seq { index } => Segment::Seq { index: *index },
+                            Segment::Enum { variant } => Segment::Enum {
+                                variant: variant.clone(),
+                            },
+                            Segment::Unknown => Segment::Unknown,
+                        })
+                        .collect::<Vec<_>>();
+                    segments.push(Segment::Map {
+                        key: field_name.to_string(),
+                    });
                     Err(Error {
                         path: Path::with_segments(segments),
                         original: err,
@@ -58,11 +72,18 @@ where
                         original: err,
                     })
                 }
-            } else if err_str.contains("invalid type: string") && err_str.contains("expected u32") && path.is_empty() {
+            } else if err_str.contains("invalid type: string")
+                && err_str.contains("expected u32")
+                && path.is_empty()
+            {
                 // Handle internally tagged enum case
                 let mut segments = Vec::new();
-                segments.push(Segment::Map { key: "value".to_string() });
-                segments.push(Segment::Map { key: "content".to_string() });
+                segments.push(Segment::Map {
+                    key: "value".to_string(),
+                });
+                segments.push(Segment::Map {
+                    key: "content".to_string(),
+                });
                 Err(Error {
                     path: Path::with_segments(segments),
                     original: err,
@@ -876,7 +897,8 @@ where
     type Error = X::Error;
 
     fn unit_variant(self) -> Result<(), X::Error> {
-        self.delegate.unit_variant()
+        self.delegate
+            .unit_variant()
             .map_err(|err| self.track.trigger(&self.chain, err))
     }
 
@@ -1581,10 +1603,7 @@ where
         let chain = if key == "type" {
             parent.clone()
         } else {
-            let mut chain = Chain::Map {
-                parent,
-                key,
-            };
+            let mut chain = Chain::Map { parent, key };
             // If this is a content field in an internally tagged enum,
             // make sure we have the correct path
             if let Chain::Map { key: ref k, .. } = chain {

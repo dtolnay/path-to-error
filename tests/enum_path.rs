@@ -23,13 +23,16 @@ fn test_internally_tagged_enum_path() {
 
     let json_deserializer = &mut serde_json::Deserializer::from_str(failing_json);
     let result: Result<Wrapper, _> = serde_path_to_error::deserialize(json_deserializer);
-    
+
     match result {
         Ok(_) => panic!("Expected error but got success"),
         Err(e) => {
             let path = e.path().to_string();
             println!("Path: {}", path);
-            assert_eq!(path, "value.content", "Path should include full path to error");
+            assert_eq!(
+                path, "value.content",
+                "Path should include full path to error"
+            );
         }
     }
 }

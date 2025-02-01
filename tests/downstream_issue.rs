@@ -35,15 +35,20 @@ fn test_missing_field_path() {
 
     let json_deserializer = &mut serde_json::Deserializer::from_str(json);
     let result: Result<Function, _> = serde_path_to_error::deserialize(json_deserializer);
-    
+
     match result {
         Ok(_) => panic!("Expected error but got success"),
         Err(e) => {
             let path = e.path().to_string();
             let err = e.into_inner();
-            assert_eq!(path, "variants.my_variant.type", "Error path should point to missing type field");
-            assert!(err.to_string().contains("missing field"), 
-                   "Error message should indicate missing field");
+            assert_eq!(
+                path, "variants.my_variant.type",
+                "Error path should point to missing type field"
+            );
+            assert!(
+                err.to_string().contains("missing field"),
+                "Error message should indicate missing field"
+            );
         }
     }
-} 
+}

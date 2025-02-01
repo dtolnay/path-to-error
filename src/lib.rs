@@ -176,8 +176,12 @@ impl Track {
             if key == "content" {
                 if found_value {
                     segments.clear();
-                    segments.push(Segment::Map { key: "value".to_string() });
-                    segments.push(Segment::Map { key: "content".to_string() });
+                    segments.push(Segment::Map {
+                        key: "value".to_string(),
+                    });
+                    segments.push(Segment::Map {
+                        key: "content".to_string(),
+                    });
                     return Some(Path::with_segments(segments));
                 }
             } else if key == "value" {
@@ -191,6 +195,7 @@ impl Track {
 }
 
 #[derive(Clone)]
+#[allow(dead_code)]
 enum Chain<'a> {
     Root,
     Seq {
