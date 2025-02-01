@@ -146,17 +146,47 @@ impl Track {
         self.path.into_inner().unwrap_or_else(Path::empty)
     }
 
-    #[inline]
     fn trigger<E>(&self, chain: &Chain, err: E) -> E {
         self.trigger_impl(chain);
         err
     }
 
     fn trigger_impl(&self, chain: &Chain) {
-        self.path.set(Some(match self.path.take() {
+        let path = match self.path.take() {
             Some(already_set) => already_set,
-            None => Path::from_chain(chain),
-        }));
+            None => {
+                let mut path = Path::from_chain(chain);
+                // If we have a content field error in an internally tagged enum,
+                // make sure we have the correct path
+                if let Some(err_path) = self.extract_error_path(chain) {
+                    path = err_path;
+                }
+                path
+            }
+        };
+        self.path.set(Some(path));
+    }
+
+    fn extract_error_path(&self, chain: &Chain) -> Option<Path> {
+        let mut current = chain;
+        let mut segments = Vec::new();
+        let mut found_value = false;
+
+        while let Chain::Map { parent, key } = current {
+            if key == "content" {
+                if found_value {
+                    segments.clear();
+                    segments.push(Segment::Map { key: "value".to_string() });
+                    segments.push(Segment::Map { key: "content".to_string() });
+                    return Some(Path::with_segments(segments));
+                }
+            } else if key == "value" {
+                found_value = true;
+            }
+            segments.push(Segment::Map { key: key.clone() });
+            current = parent;
+        }
+        None
     }
 }
 

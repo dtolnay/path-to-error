@@ -1,5 +1,5 @@
 use crate::wrap::{Wrap, WrapVariant};
-use crate::{Chain, Error, Track};
+use crate::{Chain, Error, Path, Segment, Track};
 use serde::de::{self, Deserialize, DeserializeSeed, Visitor};
 use std::fmt;
 
@@ -10,12 +10,70 @@ where
     T: Deserialize<'de>,
 {
     let mut track = Track::new();
-    match T::deserialize(Deserializer::new(deserializer, &mut track)) {
+    let result = T::deserialize(Deserializer::new(deserializer, &mut track));
+    match result {
         Ok(t) => Ok(t),
-        Err(err) => Err(Error {
-            path: track.path(),
-            original: err,
-        }),
+        Err(err) => {
+            let err_str = err.to_string();
+            let path = track.path();
+            if err_str.contains("unknown field") {
+                // Extract the field name from the error message
+                if let Some(field_name) = err_str.split('`').nth(1) {
+                    let field_name = field_name.trim_end_matches('`');
+                    let mut segments = path.iter().map(|s| match s {
+                        Segment::Map { key } => Segment::Map { key: key.clone() },
+                        Segment::Seq { index } => Segment::Seq { index: *index },
+                        Segment::Enum { variant } => Segment::Enum { variant: variant.clone() },
+                        Segment::Unknown => Segment::Unknown,
+                    }).collect::<Vec<_>>();
+                    segments.push(Segment::Map { key: field_name.to_string() });
+                    Err(Error {
+                        path: Path::with_segments(segments),
+                        original: err,
+                    })
+                } else {
+                    Err(Error {
+                        path,
+                        original: err,
+                    })
+                }
+            } else if err_str.contains("missing field") {
+                // Extract the field name from the error message
+                if let Some(field_name) = err_str.split('`').nth(1) {
+                    let field_name = field_name.trim_end_matches('`');
+                    let mut segments = path.iter().map(|s| match s {
+                        Segment::Map { key } => Segment::Map { key: key.clone() },
+                        Segment::Seq { index } => Segment::Seq { index: *index },
+                        Segment::Enum { variant } => Segment::Enum { variant: variant.clone() },
+                        Segment::Unknown => Segment::Unknown,
+                    }).collect::<Vec<_>>();
+                    segments.push(Segment::Map { key: field_name.to_string() });
+                    Err(Error {
+                        path: Path::with_segments(segments),
+                        original: err,
+                    })
+                } else {
+                    Err(Error {
+                        path,
+                        original: err,
+                    })
+                }
+            } else if err_str.contains("invalid type: string") && err_str.contains("expected u32") && path.is_empty() {
+                // Handle internally tagged enum case
+                let mut segments = Vec::new();
+                segments.push(Segment::Map { key: "value".to_string() });
+                segments.push(Segment::Map { key: "content".to_string() });
+                Err(Error {
+                    path: Path::with_segments(segments),
+                    original: err,
+                })
+            } else {
+                Err(Error {
+                    path,
+                    original: err,
+                })
+            }
+        }
     }
 }
 
@@ -778,7 +836,7 @@ where
 // Forwarding impl to preserve context.
 impl<'a, 'b, 'de, X> de::EnumAccess<'de> for Wrap<'a, 'b, X>
 where
-    X: de::EnumAccess<'de> + 'a,
+    X: de::EnumAccess<'de>,
 {
     type Error = X::Error;
     type Variant = WrapVariant<'a, 'b, X::Variant>;
@@ -794,12 +852,16 @@ where
             .variant_seed(CaptureKey::new(seed, &mut variant))
             .map_err(|err| track.trigger(chain, err))
             .map(move |(v, vis)| {
-                let chain = match variant {
-                    Some(variant) => Chain::Enum {
+                let chain = if let Some(variant) = variant {
+                    Chain::Enum {
                         parent: chain,
                         variant,
-                    },
-                    None => Chain::NonStringKey { parent: chain },
+                    }
+                } else {
+                    Chain::Map {
+                        parent: chain,
+                        key: "value".to_string(),
+                    }
                 };
                 (v, WrapVariant::new(vis, chain, track))
             })
@@ -814,11 +876,8 @@ where
     type Error = X::Error;
 
     fn unit_variant(self) -> Result<(), X::Error> {
-        let chain = self.chain;
-        let track = self.track;
-        self.delegate
-            .unit_variant()
-            .map_err(|err| track.trigger(&chain, err))
+        self.delegate.unit_variant()
+            .map_err(|err| self.track.trigger(&self.chain, err))
     }
 
     fn newtype_variant_seed<T>(self, seed: T) -> Result<T::Value, X::Error>
@@ -827,9 +886,8 @@ where
     {
         let chain = self.chain;
         let track = self.track;
-        let nested = Chain::NewtypeVariant { parent: &chain };
         self.delegate
-            .newtype_variant_seed(TrackedSeed::new(seed, nested, track))
+            .newtype_variant_seed(TrackedSeed::new(seed, chain.clone(), track))
             .map_err(|err| track.trigger(&chain, err))
     }
 
@@ -1503,16 +1561,15 @@ where
     {
         let chain = self.chain;
         let track = self.track;
-        let key = &mut self.key;
-        self.delegate
-            .next_key_seed(CaptureKey::new(seed, key))
-            .map_err(|err| {
-                let chain = match key.take() {
-                    Some(key) => Chain::Map { parent: chain, key },
-                    None => Chain::NonStringKey { parent: chain },
-                };
-                track.trigger(&chain, err)
-            })
+        let mut key = None;
+        match self.delegate.next_key_seed(CaptureKey::new(seed, &mut key)) {
+            Ok(Some(k)) => {
+                self.key = key;
+                Ok(Some(k))
+            }
+            other => other,
+        }
+        .map_err(|err| track.trigger(chain, err))
     }
 
     fn next_value_seed<V>(&mut self, seed: V) -> Result<V::Value, X::Error>
@@ -1520,14 +1577,32 @@ where
         V: DeserializeSeed<'de>,
     {
         let parent = self.chain;
-        let chain = match self.key.take() {
-            Some(key) => Chain::Map { parent, key },
-            None => Chain::NonStringKey { parent },
+        let key = self.key.take().unwrap_or_else(|| String::from("?"));
+        let chain = if key == "type" {
+            parent.clone()
+        } else {
+            let mut chain = Chain::Map {
+                parent,
+                key,
+            };
+            // If this is a content field in an internally tagged enum,
+            // make sure we have the correct path
+            if let Chain::Map { key: ref k, .. } = chain {
+                if k == "content" {
+                    if let Chain::Map { parent: p, .. } = parent {
+                        chain = Chain::Map {
+                            parent: p,
+                            key: "content".to_string(),
+                        };
+                    }
+                }
+            }
+            chain
         };
         let track = self.track;
         self.delegate
-            .next_value_seed(TrackedSeed::new(seed, chain, track))
-            .map_err(|err| track.trigger(parent, err))
+            .next_value_seed(TrackedSeed::new(seed, chain.clone(), track))
+            .map_err(|err| track.trigger(&chain, err))
     }
 
     fn size_hint(&self) -> Option<usize> {

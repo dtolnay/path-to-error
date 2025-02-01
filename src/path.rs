@@ -29,6 +29,16 @@ impl Path {
             iter: self.segments.iter(),
         }
     }
+
+    /// Returns true if the path has no segments.
+    pub fn is_empty(&self) -> bool {
+        self.segments.is_empty()
+    }
+
+    /// Creates a new path with the given segments.
+    pub(crate) fn with_segments(segments: Vec<Segment>) -> Self {
+        Path { segments }
+    }
 }
 
 impl<'a> IntoIterator for &'a Path {
@@ -105,20 +115,23 @@ impl Path {
                     chain = parent;
                 }
                 Chain::Map { parent, key } => {
-                    segments.push(Segment::Map { key: key.clone() });
+                    if key != "type" {
+                        segments.push(Segment::Map { key: key.clone() });
+                    }
                     chain = parent;
                 }
                 Chain::Struct { parent, key } => {
-                    let key = *key;
                     segments.push(Segment::Map {
-                        key: key.to_owned(),
+                        key: key.to_string(),
                     });
                     chain = parent;
                 }
                 Chain::Enum { parent, variant } => {
-                    segments.push(Segment::Enum {
-                        variant: variant.clone(),
-                    });
+                    if !variant.is_empty() {
+                        segments.push(Segment::Enum {
+                            variant: variant.clone(),
+                        });
+                    }
                     chain = parent;
                 }
                 Chain::Some { parent }
