@@ -56,6 +56,7 @@
 #![doc(html_root_url = "https://docs.rs/serde_path_to_error/0.1.16")]
 #![allow(
     clippy::doc_link_with_quotes, // https://github.com/rust-lang/rust-clippy/issues/8961
+    clippy::elidable_lifetime_names,
     clippy::iter_not_returning_iterator, // https://github.com/rust-lang/rust-clippy/issues/8285
     clippy::missing_errors_doc,
     clippy::module_name_repetitions,
