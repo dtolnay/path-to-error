@@ -64,6 +64,7 @@
     clippy::needless_lifetimes,
     clippy::new_without_default
 )]
+#![allow(unknown_lints, mismatched_lifetime_syntaxes)]
 
 mod de;
 mod path;
