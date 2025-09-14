@@ -67,6 +67,8 @@
 )]
 #![allow(unknown_lints, mismatched_lifetime_syntaxes)]
 
+extern crate serde_core as serde;
+
 mod de;
 mod path;
 mod ser;
