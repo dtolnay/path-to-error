@@ -62,7 +62,8 @@
     clippy::module_name_repetitions,
     clippy::must_use_candidate,
     clippy::needless_lifetimes,
-    clippy::new_without_default
+    clippy::new_without_default,
+    clippy::uninlined_format_args
 )]
 #![allow(unknown_lints, mismatched_lifetime_syntaxes)]
 
