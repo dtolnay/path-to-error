@@ -53,7 +53,7 @@
 //! }
 //! ```
 
-#![doc(html_root_url = "https://docs.rs/serde_path_to_error/0.1.17")]
+#![doc(html_root_url = "https://docs.rs/serde_path_to_error/0.1.18")]
 #![allow(
     clippy::doc_link_with_quotes, // https://github.com/rust-lang/rust-clippy/issues/8961
     clippy::elidable_lifetime_names,
