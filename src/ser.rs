@@ -1,8 +1,10 @@
 use crate::wrap::Wrap;
 use crate::{Chain, Error, Track};
+use alloc::borrow::ToOwned as _;
+use alloc::string::{String, ToString as _};
+use core::cell::Cell;
+use core::fmt::Display;
 use serde::ser::{self, Serialize};
-use std::cell::Cell;
-use std::fmt::Display;
 
 /// Entry point for tracking path to Serialize error.
 ///

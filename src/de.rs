@@ -1,7 +1,10 @@
 use crate::wrap::{Wrap, WrapVariant};
 use crate::{Chain, Error, Track};
+use alloc::borrow::ToOwned as _;
+use alloc::string::String;
+use alloc::vec::Vec;
+use core::fmt;
 use serde::de::{self, Deserialize, DeserializeSeed, Visitor};
-use std::fmt;
 
 /// Entry point. See [crate documentation][crate] for an example.
 pub fn deserialize<'de, D, T>(deserializer: D) -> Result<T, Error<D::Error>>

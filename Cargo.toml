@@ -2,7 +2,7 @@
 name = "serde_path_to_error"
 version = "0.1.19"
 authors = ["David Tolnay <dtolnay@gmail.com>"]
-categories = ["encoding"]
+categories = ["encoding", "no-std"]
 description = "Path to the element that failed to deserialize"
 documentation = "https://docs.rs/serde_path_to_error"
 edition = "2021"
@@ -13,10 +13,10 @@ rust-version = "1.61"
 
 [dependencies]
 itoa = "1.0"
-serde_core = "1.0.220"
+serde_core = { version = "1.0.220", default-features = false, features = ["alloc"] }
 
 [target.'cfg(any())'.dependencies]
-serde = "1.0.220"
+serde = { version = "1.0.220", default-features = false }
 
 [dev-dependencies]
 serde = "1.0.220"

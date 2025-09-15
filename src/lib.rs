@@ -54,6 +54,7 @@
 //! ```
 
 #![doc(html_root_url = "https://docs.rs/serde_path_to_error/0.1.19")]
+#![no_std]
 #![allow(
     clippy::doc_link_with_quotes, // https://github.com/rust-lang/rust-clippy/issues/8961
     clippy::elidable_lifetime_names,
@@ -67,6 +68,7 @@
 )]
 #![allow(unknown_lints, mismatched_lifetime_syntaxes)]
 
+extern crate alloc;
 extern crate serde_core as serde;
 
 mod de;
@@ -74,9 +76,10 @@ mod path;
 mod ser;
 mod wrap;
 
-use std::cell::Cell;
-use std::error::Error as StdError;
-use std::fmt::{self, Display};
+use alloc::string::String;
+use core::cell::Cell;
+use core::fmt::{self, Display};
+use serde::ser::StdError;
 
 pub use crate::de::{deserialize, Deserializer};
 pub use crate::path::{Path, Segment, Segments};
