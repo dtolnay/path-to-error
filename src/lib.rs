@@ -53,7 +53,7 @@
 //! }
 //! ```
 
-#![doc(html_root_url = "https://docs.rs/serde_path_to_error/0.1.19")]
+#![doc(html_root_url = "https://docs.rs/serde_path_to_error/0.1.20")]
 #![no_std]
 #![allow(
     clippy::doc_link_with_quotes, // https://github.com/rust-lang/rust-clippy/issues/8961
