@@ -141,6 +141,10 @@ impl Path {
     pub(crate) fn is_only_unknown(&self) -> bool {
         self.segments.iter().all(Segment::is_unknown)
     }
+
+    pub(crate) fn len(&self) -> usize {
+        self.segments.len()
+    }
 }
 
 impl Display for Segment {

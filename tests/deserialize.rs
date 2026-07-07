@@ -135,6 +135,131 @@ fn test_tuple_variant() {
 }
 
 #[test]
+fn test_nested_tagged_enums() {
+    #[derive(Deserialize, Debug)]
+    #[serde(tag = "type", content = "content")]
+    enum TestStruct {
+        A(u32),
+    }
+
+    #[derive(Deserialize, Debug)]
+    #[serde(tag = "type")]
+    enum Wrapper {
+        B { value: TestStruct },
+    }
+
+    let j = r#"{
+        "type": "B",
+        "value": { "type": "A", "content": "500" }
+    }"#;
+
+    test::<Wrapper>(j, "value.content");
+}
+
+#[test]
+fn test_internally_tagged_enum_nested() {
+    #[derive(Deserialize, Debug)]
+    #[serde(tag = "type")]
+    enum InnerValue {
+        Number { data: u32 },
+    }
+
+    #[derive(Deserialize, Debug)]
+    #[serde(tag = "kind")]
+    enum OuterValue {
+        Container { inner: InnerValue },
+    }
+
+    #[derive(Deserialize, Debug)]
+    struct Root {
+        outer: OuterValue,
+    }
+
+    let json = r#"{
+        "outer": {
+            "kind": "Container",
+            "inner": {
+                "type": "Number",
+                "data": "not_a_number"
+            }
+        }
+    }"#;
+
+    test::<Root>(json, "outer.inner.data");
+}
+
+#[test]
+fn test_internally_tagged_enum_in_array() {
+    #[derive(Deserialize, Debug)]
+    #[serde(tag = "type")]
+    enum Value {
+        Number { content: u32 },
+    }
+
+    #[derive(Deserialize, Debug)]
+    struct Container {
+        values: Vec<Value>,
+    }
+
+    let json = r#"{
+        "values": [
+            { "type": "Number", "content": 123 },
+            { "type": "Number", "content": "not_a_number" }
+        ]
+    }"#;
+
+    test::<Container>(json, "values[1].content");
+}
+
+#[test]
+fn test_internally_tagged_enum_missing_tag() {
+    #[derive(Deserialize, Debug)]
+    #[serde(tag = "type")]
+    enum Value {
+        Number { data: u32 },
+    }
+
+    #[derive(Deserialize, Debug)]
+    struct Container {
+        value: Value,
+    }
+
+    let json = r#"{
+        "value": {
+            "data": 123
+        }
+    }"#;
+
+    test::<Container>(json, "value");
+}
+
+#[test]
+fn test_adjacently_tagged_enum_struct_variant() {
+    #[derive(Deserialize, Debug)]
+    #[serde(tag = "type", content = "data")]
+    enum Value {
+        Complex { field1: String, field2: u32 },
+    }
+
+    #[derive(Deserialize, Debug)]
+    struct Container {
+        value: Value,
+    }
+
+    let json = r#"{
+        "value": {
+            "type": "Complex",
+            "data": {
+                "field1": "valid",
+                "field2": "not_a_number"
+            }
+        }
+    }"#;
+
+    test::<Container>(json, "value.data.field2");
+}
+
+#[test]
 fn test_unknown_field() {
     #[derive(Deserialize, Debug)]
     struct Package {

@@ -76,7 +76,7 @@ mod path;
 mod ser;
 mod wrap;
 
-use alloc::string::String;
+use alloc::string::{String, ToString};
 use core::cell::Cell;
 use core::fmt::{self, Display};
 use serde::ser::StdError;
@@ -138,6 +138,7 @@ impl<E: StdError> StdError for Error<E> {
 /// [`Deserializer`].
 pub struct Track {
     path: Cell<Option<Path>>,
+    fallback: Cell<Option<Path>>,
 }
 
 impl Track {
@@ -145,6 +146,7 @@ impl Track {
     pub const fn new() -> Self {
         Track {
             path: Cell::new(None),
+            fallback: Cell::new(None),
         }
     }
 
@@ -166,6 +168,50 @@ impl Track {
             None => Path::from_chain(chain),
         }));
     }
+
+    #[inline]
+    fn trigger_fallback<E: Display>(&self, chain: &Chain, err: E) -> E {
+        self.trigger_fallback_impl(chain, &err);
+        err
+    }
+
+    fn trigger_fallback_impl<E: Display>(&self, chain: &Chain, err: &E) {
+        if is_structural_error(err) {
+            self.trigger_impl(chain);
+            return;
+        }
+
+        let default = Path::from_chain(chain);
+        let fallback = self.fallback.take();
+        self.path.set(Some(match (self.path.take(), fallback) {
+            (Some(already_set), Some(fallback)) if fallback.len() > already_set.len() => fallback,
+            (Some(already_set), _) => already_set,
+            (None, Some(fallback)) if fallback.len() > default.len() => fallback,
+            (None, _) => default,
+        }));
+    }
+
+    fn fallback(&self, chain: &Chain) {
+        self.fallback.set(Some(Path::from_chain(chain)));
+    }
+
+    fn path_for_error<E: Display>(self, err: &E) -> Path {
+        match self.path.into_inner() {
+            Some(path) => path,
+            None => {
+                if is_structural_error(err) {
+                    Path::empty()
+                } else {
+                    self.fallback.into_inner().unwrap_or_else(Path::empty)
+                }
+            }
+        }
+    }
+}
+
+fn is_structural_error<E: Display>(err: &E) -> bool {
+    let message = err.to_string();
+    message.contains("missing field") || message.contains("invalid length")
 }
 
 #[derive(Clone)]

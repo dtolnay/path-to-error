@@ -16,7 +16,7 @@ where
     match T::deserialize(Deserializer::new(deserializer, &mut track)) {
         Ok(t) => Ok(t),
         Err(err) => Err(Error {
-            path: track.path(),
+            path: track.path_for_error(&err),
             original: err,
         }),
     }
@@ -100,7 +100,7 @@ where
         let track = self.track;
         self.de
             .deserialize_any(Wrap::new(visitor, &chain, track))
-            .map_err(|err| track.trigger(&chain, err))
+            .map_err(|err| track.trigger_fallback(&chain, err))
     }
 
     fn deserialize_bool<V>(self, visitor: V) -> Result<V::Value, D::Error>
@@ -431,7 +431,7 @@ where
         let track = self.track;
         self.de
             .deserialize_enum(name, variants, Wrap::new(visitor, &chain, track))
-            .map_err(|err| track.trigger(&chain, err))
+            .map_err(|err| track.trigger_fallback(&chain, err))
     }
 
     fn deserialize_ignored_any<V>(self, visitor: V) -> Result<V::Value, D::Error>
@@ -1417,13 +1417,14 @@ where
     {
         let chain = self.chain;
         let track = self.track;
+        track.fallback(&chain);
         self.seed
             .deserialize(Deserializer {
                 de: deserializer,
                 chain: chain.clone(),
                 track,
             })
-            .map_err(|err| track.trigger(&chain, err))
+            .map_err(|err| track.trigger_fallback(&chain, err))
     }
 }
 
@@ -1528,6 +1529,7 @@ where
             None => Chain::NonStringKey { parent },
         };
         let track = self.track;
+        track.fallback(&chain);
         self.delegate
             .next_value_seed(TrackedSeed::new(seed, chain, track))
             .map_err(|err| track.trigger(parent, err))
