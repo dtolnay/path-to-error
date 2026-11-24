@@ -1,7 +1,5 @@
 use crate::wrap::Wrap;
-use crate::{Chain, Error, Track};
-use alloc::borrow::ToOwned as _;
-use alloc::string::{String, ToString as _};
+use crate::{Chain, Error, Key, Track};
 use core::cell::Cell;
 use core::fmt::Display;
 use serde::ser::{self, Serialize};
@@ -615,7 +613,7 @@ where
 pub struct WrapMap<'a, 'b, S> {
     delegate: S,
     chain: &'a Chain<'a>,
-    key: Cell<Option<String>>,
+    key: Cell<Option<Key>>,
     track: &'b Track,
 }
 
@@ -740,12 +738,12 @@ where
 }
 
 struct CaptureKey<'a, T> {
-    out: &'a Cell<Option<String>>,
+    out: &'a Cell<Option<Key>>,
     delegate: T,
 }
 
 impl<'a, T> CaptureKey<'a, T> {
-    fn new(out: &'a Cell<Option<String>>, delegate: T) -> Self {
+    fn new(out: &'a Cell<Option<Key>>, delegate: T) -> Self {
         CaptureKey { out, delegate }
     }
 }
@@ -779,57 +777,57 @@ where
 
     fn serialize_bool(self, v: bool) -> Result<Self::Ok, Self::Error> {
         let string = if v { "true" } else { "false" };
-        self.out.set(Some(string.to_owned()));
+        self.out.set(Some(Key::new(string)));
         self.delegate.serialize_bool(v)
     }
 
     fn serialize_i8(self, v: i8) -> Result<Self::Ok, Self::Error> {
-        self.out.set(Some(itoa::Buffer::new().format(v).to_owned()));
+        self.out.set(Some(Key::new(itoa::Buffer::new().format(v))));
         self.delegate.serialize_i8(v)
     }
 
     fn serialize_i16(self, v: i16) -> Result<Self::Ok, Self::Error> {
-        self.out.set(Some(itoa::Buffer::new().format(v).to_owned()));
+        self.out.set(Some(Key::new(itoa::Buffer::new().format(v))));
         self.delegate.serialize_i16(v)
     }
 
     fn serialize_i32(self, v: i32) -> Result<Self::Ok, Self::Error> {
-        self.out.set(Some(itoa::Buffer::new().format(v).to_owned()));
+        self.out.set(Some(Key::new(itoa::Buffer::new().format(v))));
         self.delegate.serialize_i32(v)
     }
 
     fn serialize_i64(self, v: i64) -> Result<Self::Ok, Self::Error> {
-        self.out.set(Some(itoa::Buffer::new().format(v).to_owned()));
+        self.out.set(Some(Key::new(itoa::Buffer::new().format(v))));
         self.delegate.serialize_i64(v)
     }
 
     fn serialize_i128(self, v: i128) -> Result<Self::Ok, Self::Error> {
-        self.out.set(Some(itoa::Buffer::new().format(v).to_owned()));
+        self.out.set(Some(Key::new(itoa::Buffer::new().format(v))));
         self.delegate.serialize_i128(v)
     }
 
     fn serialize_u8(self, v: u8) -> Result<Self::Ok, Self::Error> {
-        self.out.set(Some(itoa::Buffer::new().format(v).to_owned()));
+        self.out.set(Some(Key::new(itoa::Buffer::new().format(v))));
         self.delegate.serialize_u8(v)
     }
 
     fn serialize_u16(self, v: u16) -> Result<Self::Ok, Self::Error> {
-        self.out.set(Some(itoa::Buffer::new().format(v).to_owned()));
+        self.out.set(Some(Key::new(itoa::Buffer::new().format(v))));
         self.delegate.serialize_u16(v)
     }
 
     fn serialize_u32(self, v: u32) -> Result<Self::Ok, Self::Error> {
-        self.out.set(Some(itoa::Buffer::new().format(v).to_owned()));
+        self.out.set(Some(Key::new(itoa::Buffer::new().format(v))));
         self.delegate.serialize_u32(v)
     }
 
     fn serialize_u64(self, v: u64) -> Result<Self::Ok, Self::Error> {
-        self.out.set(Some(itoa::Buffer::new().format(v).to_owned()));
+        self.out.set(Some(Key::new(itoa::Buffer::new().format(v))));
         self.delegate.serialize_u64(v)
     }
 
     fn serialize_u128(self, v: u128) -> Result<Self::Ok, Self::Error> {
-        self.out.set(Some(itoa::Buffer::new().format(v).to_owned()));
+        self.out.set(Some(Key::new(itoa::Buffer::new().format(v))));
         self.delegate.serialize_u128(v)
     }
 
@@ -846,7 +844,7 @@ where
     }
 
     fn serialize_str(self, v: &str) -> Result<Self::Ok, Self::Error> {
-        self.out.set(Some(v.to_owned()));
+        self.out.set(Some(Key::new(v)));
         self.delegate.serialize_str(v)
     }
 
@@ -880,7 +878,7 @@ where
         variant_index: u32,
         variant: &'static str,
     ) -> Result<Self::Ok, Self::Error> {
-        self.out.set(Some(variant.to_owned()));
+        self.out.set(Some(Key::new(variant)));
         self.delegate
             .serialize_unit_variant(name, variant_index, variant)
     }
@@ -982,7 +980,7 @@ where
     where
         T: ?Sized + Display,
     {
-        self.out.set(Some(value.to_string()));
+        self.out.set(Some(Key::from_display(value)));
         self.delegate.collect_str(value)
     }
 

@@ -107,7 +107,9 @@ impl Path {
                     chain = parent;
                 }
                 Chain::Map { parent, key } => {
-                    segments.push(Segment::Map { key: key.clone() });
+                    segments.push(Segment::Map {
+                        key: key.as_str().to_owned(),
+                    });
                     chain = parent;
                 }
                 Chain::Struct { parent, key } => {
@@ -119,7 +121,7 @@ impl Path {
                 }
                 Chain::Enum { parent, variant } => {
                     segments.push(Segment::Enum {
-                        variant: variant.clone(),
+                        variant: variant.as_str().to_owned(),
                     });
                     chain = parent;
                 }

@@ -1,6 +1,5 @@
 use crate::wrap::{Wrap, WrapVariant};
-use crate::{Chain, Error, Track};
-use alloc::borrow::ToOwned as _;
+use crate::{Chain, Error, Key, Track};
 use alloc::string::String;
 use alloc::vec::Vec;
 use core::fmt;
@@ -867,11 +866,11 @@ where
 // `visit_string`.
 struct CaptureKey<'a, X> {
     delegate: X,
-    key: &'a mut Option<String>,
+    key: &'a mut Option<Key>,
 }
 
 impl<'a, X> CaptureKey<'a, X> {
-    fn new(delegate: X, key: &'a mut Option<String>) -> Self {
+    fn new(delegate: X, key: &'a mut Option<Key>) -> Self {
         CaptureKey { delegate, key }
     }
 }
@@ -1191,7 +1190,7 @@ where
         E: de::Error,
     {
         let string = if v { "true" } else { "false" };
-        *self.key = Some(string.to_owned());
+        *self.key = Some(Key::new(string));
         self.delegate.visit_bool(v)
     }
 
@@ -1199,7 +1198,7 @@ where
     where
         E: de::Error,
     {
-        *self.key = Some(itoa::Buffer::new().format(v).to_owned());
+        *self.key = Some(Key::new(itoa::Buffer::new().format(v)));
         self.delegate.visit_i8(v)
     }
 
@@ -1207,7 +1206,7 @@ where
     where
         E: de::Error,
     {
-        *self.key = Some(itoa::Buffer::new().format(v).to_owned());
+        *self.key = Some(Key::new(itoa::Buffer::new().format(v)));
         self.delegate.visit_i16(v)
     }
 
@@ -1215,7 +1214,7 @@ where
     where
         E: de::Error,
     {
-        *self.key = Some(itoa::Buffer::new().format(v).to_owned());
+        *self.key = Some(Key::new(itoa::Buffer::new().format(v)));
         self.delegate.visit_i32(v)
     }
 
@@ -1223,7 +1222,7 @@ where
     where
         E: de::Error,
     {
-        *self.key = Some(itoa::Buffer::new().format(v).to_owned());
+        *self.key = Some(Key::new(itoa::Buffer::new().format(v)));
         self.delegate.visit_i64(v)
     }
 
@@ -1231,7 +1230,7 @@ where
     where
         E: de::Error,
     {
-        *self.key = Some(itoa::Buffer::new().format(v).to_owned());
+        *self.key = Some(Key::new(itoa::Buffer::new().format(v)));
         self.delegate.visit_i128(v)
     }
 
@@ -1239,7 +1238,7 @@ where
     where
         E: de::Error,
     {
-        *self.key = Some(itoa::Buffer::new().format(v).to_owned());
+        *self.key = Some(Key::new(itoa::Buffer::new().format(v)));
         self.delegate.visit_u8(v)
     }
 
@@ -1247,7 +1246,7 @@ where
     where
         E: de::Error,
     {
-        *self.key = Some(itoa::Buffer::new().format(v).to_owned());
+        *self.key = Some(Key::new(itoa::Buffer::new().format(v)));
         self.delegate.visit_u16(v)
     }
 
@@ -1255,7 +1254,7 @@ where
     where
         E: de::Error,
     {
-        *self.key = Some(itoa::Buffer::new().format(v).to_owned());
+        *self.key = Some(Key::new(itoa::Buffer::new().format(v)));
         self.delegate.visit_u32(v)
     }
 
@@ -1263,7 +1262,7 @@ where
     where
         E: de::Error,
     {
-        *self.key = Some(itoa::Buffer::new().format(v).to_owned());
+        *self.key = Some(Key::new(itoa::Buffer::new().format(v)));
         self.delegate.visit_u64(v)
     }
 
@@ -1271,7 +1270,7 @@ where
     where
         E: de::Error,
     {
-        *self.key = Some(itoa::Buffer::new().format(v).to_owned());
+        *self.key = Some(Key::new(itoa::Buffer::new().format(v)));
         self.delegate.visit_u128(v)
     }
 
@@ -1300,7 +1299,7 @@ where
     where
         E: de::Error,
     {
-        *self.key = Some(v.to_owned());
+        *self.key = Some(Key::new(v));
         self.delegate.visit_str(v)
     }
 
@@ -1308,7 +1307,7 @@ where
     where
         E: de::Error,
     {
-        *self.key = Some(v.to_owned());
+        *self.key = Some(Key::new(v));
         self.delegate.visit_borrowed_str(v)
     }
 
@@ -1316,7 +1315,7 @@ where
     where
         E: de::Error,
     {
-        *self.key = Some(v.clone());
+        *self.key = Some(Key::new(&v));
         self.delegate.visit_string(v)
     }
 
@@ -1479,7 +1478,7 @@ where
 struct MapAccess<'a, 'b, X> {
     delegate: X,
     chain: &'a Chain<'a>,
-    key: Option<String>,
+    key: Option<Key>,
     track: &'b Track,
 }
 
