@@ -76,6 +76,7 @@ mod path;
 mod ser;
 mod wrap;
 
+use alloc::borrow::ToOwned as _;
 use alloc::string::String;
 use core::cell::Cell;
 use core::fmt::{self, Display};
@@ -177,7 +178,7 @@ enum Chain<'a> {
     },
     Map {
         parent: &'a Chain<'a>,
-        key: String,
+        key: Key,
     },
     Struct {
         parent: &'a Chain<'a>,
@@ -185,7 +186,7 @@ enum Chain<'a> {
     },
     Enum {
         parent: &'a Chain<'a>,
-        variant: String,
+        variant: Key,
     },
     Some {
         parent: &'a Chain<'a>,
@@ -199,4 +200,82 @@ enum Chain<'a> {
     NonStringKey {
         parent: &'a Chain<'a>,
     },
+}
+
+// Map key or enum variant, stored inline if it is short enough.
+enum Key {
+    Inline { len: u8, buf: [u8; Key::INLINE] },
+    Heap(String),
+}
+
+impl Key {
+    const INLINE: usize = 30;
+
+    #[inline]
+    fn new(s: &str) -> Self {
+        let mut buf = [0; Key::INLINE];
+        match (buf.get_mut(..s.len()), u8::try_from(s.len())) {
+            (Some(dst), Ok(len)) => {
+                dst.copy_from_slice(s.as_bytes());
+                Key::Inline { len, buf }
+            }
+            _ => Key::Heap(s.to_owned()),
+        }
+    }
+
+    fn from_display<T: ?Sized + Display>(value: &T) -> Self {
+        let mut key = Key::Inline {
+            len: 0,
+            buf: [0; Key::INLINE],
+        };
+        let _ = fmt::Write::write_fmt(&mut key, format_args!("{}", value));
+        key
+    }
+
+    fn push_str(&mut self, s: &str) {
+        if let Key::Inline { len, buf } = self {
+            let start = usize::from(*len);
+            let end = start + s.len();
+            if let (Some(dst), Ok(new_len)) = (buf.get_mut(start..end), u8::try_from(end)) {
+                dst.copy_from_slice(s.as_bytes());
+                *len = new_len;
+                return;
+            }
+            let mut string = String::with_capacity(end);
+            string.push_str(self.as_str());
+            *self = Key::Heap(string);
+        }
+        if let Key::Heap(string) = self {
+            string.push_str(s);
+        }
+    }
+
+    fn as_str(&self) -> &str {
+        match self {
+            Key::Inline { len, buf } => {
+                core::str::from_utf8(&buf[..usize::from(*len)]).unwrap_or("")
+            }
+            Key::Heap(string) => string,
+        }
+    }
+}
+
+impl Clone for Key {
+    #[inline]
+    fn clone(&self) -> Self {
+        match self {
+            Key::Inline { len, buf } => Key::Inline {
+                len: *len,
+                buf: *buf,
+            },
+            Key::Heap(string) => Key::Heap(string.as_str().to_owned()),
+        }
+    }
+}
+
+impl fmt::Write for Key {
+    fn write_str(&mut self, s: &str) -> fmt::Result {
+        self.push_str(s);
+        Ok(())
+    }
 }
